@@ -9,7 +9,7 @@ import {
   CheckCircle2 as CheckCircleIcon, Home as HomeIcon,
   Info as InfoIcon, ArrowLeft as ArrowLeftIcon,
   LayoutGrid as LayoutGridIcon, Settings as SettingsIcon,
-  Github as GHIcon, Heart as HeartIcon, User as UserIcon,
+  Heart as HeartIcon, User as UserIcon,
   LogOut as LogOutIcon, UserCircle2 as UserCircleIcon, Sparkles as SparklesIcon,
   MessageCircle,
 } from 'lucide-react'
@@ -187,7 +187,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
 
   const activeToolLabel = activeTool ? getToolLabel(activeTool, language).title : t('toolLabel')
 
-  // 🎨 لون الأداة الحالية للعلامة المائية
   const activeToolColors = activeTool ? categoryColors[activeTool.category] : null
 
   return (
@@ -381,7 +380,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
 
       <main className={'flex-1 min-w-0 relative ' + (shouldShowNav ? 'pb-32' : '')}>
 
-        {/* 🎨 العلامة المائية العملاقة للأداة الحالية */}
         {activeTool && activeToolColors && (
           <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
             <div className={`absolute -top-32 -right-32 ${activeToolColors.text} opacity-[0.04]`}>

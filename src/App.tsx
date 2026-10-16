@@ -1,24 +1,19 @@
 /**
- * PaperKnife - The Swiss Army Knife for PDFs
- * Copyright (C) 2026 potatameister
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * PaperKnife - السكين السويسرية لملفات PDF
+ * حقوق النشر (C) 2026 potatameister
  */
 
 import { useState, useEffect, Suspense } from 'react'
-import { 
-  Layers, Scissors, Zap, Smartphone as SmartphoneIcon, Monitor as MonitorIcon, Lock, Unlock, 
-  RotateCw, Type, Hash, Tags, FileText, ArrowUpDown, PenTool, 
-  Wrench, ImagePlus, FileImage, Palette, X, ChevronDown
+import {
+  Layers, Scissors, Zap, Smartphone as SmartphoneIcon, Monitor as MonitorIcon, Lock, Unlock,
+  RotateCw, Type, FileText, ArrowUpDown, PenTool,
+  ImagePlus, FileImage,
+  Wand2, FileType2, UserCircle, Brush, X, ChevronDown
 } from 'lucide-react'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
-import { Filesystem } from '@capacitor/filesystem'
 import { Theme, ViewMode, Tool } from './types'
 import Layout from './components/Layout'
 import { PipelineProvider, usePipeline } from './utils/pipelineContext'
@@ -26,8 +21,14 @@ import { ViewModeProvider } from './utils/viewModeContext'
 import { clearActivity, updateLastSeen, getLastSeen } from './utils/recentActivity'
 import { useBackHandler, ensureBackListening, setBackFallback } from './utils/backHandler'
 import ScrollToTop from './components/ScrollToTop'
+import AuthPage from './components/AuthPage'
+import ResetPasswordPage from './components/ResetPasswordPage'
+import ProtectedRoute from './ProtectedRoute'
 
-// Critical Views - No lazy loading to prevent dynamic import errors on Android
+// 🌟 استيراد صفحة الهبوط الجديدة
+import LandingPage from './pages/LandingPage'
+
+// الواجهات الحيوية والأدوات
 import WebView from './components/WebView'
 import AndroidView from './components/AndroidView'
 import AndroidToolsView from './components/AndroidToolsView'
@@ -35,9 +36,11 @@ import AndroidHistoryView from './components/AndroidHistoryView'
 import About from './components/About'
 import Thanks from './components/Thanks'
 import SettingsView from './components/Settings'
+import ProfilePage from './components/ProfilePage'
+import HistoryPage from './components/HistoryPage'
+import ContactPage from './components/ContactPage'
 import PdfPreview from './components/PdfPreview'
 
-// Tools - Also moving to static imports for stability in APK
 import MergeTool from './components/tools/MergeTool'
 import SplitTool from './components/tools/SplitTool'
 import ProtectTool from './components/tools/ProtectTool'
@@ -48,155 +51,114 @@ import RotateTool from './components/tools/RotateTool'
 import PdfToTextTool from './components/tools/PdfToTextTool'
 import RearrangeTool from './components/tools/RearrangeTool'
 import WatermarkTool from './components/tools/WatermarkTool'
-import PageNumberTool from './components/tools/PageNumberTool'
-import MetadataTool from './components/tools/MetadataTool'
 import ImageToPdfTool from './components/tools/ImageToPdfTool'
 import SignatureTool from './components/tools/SignatureTool'
-import RepairTool from './components/tools/RepairTool'
-import ExtractImagesTool from './components/tools/ExtractImagesTool'
-import GrayscaleTool from './components/tools/GrayscaleTool'
+
+import RemoveBackgroundTool from './components/tools/RemoveBackgroundTool'
+import WordToPdfTool from './components/tools/WordToPdfTool'
+import CvMakerTool from './components/tools/CvMakerTool'
+import ImageEditorTool from './components/tools/ImageEditorTool'
 
 const tools: Tool[] = [
-  { title: 'Merge PDF', desc: 'Combine multiple PDF files into one document.', icon: Layers, implemented: true, path: '/merge', category: 'Edit', color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20' },
-  { title: 'Split PDF', desc: 'Visually extract specific pages or ranges.', icon: Scissors, implemented: true, path: '/split', category: 'Edit', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  { title: 'Compress PDF', desc: 'Optimize your file size for easier sharing.', icon: Zap, implemented: true, path: '/compress', category: 'Optimize', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-  { title: 'Protect PDF', desc: 'Secure your documents with strong encryption.', icon: Lock, implemented: true, path: '/protect', category: 'Secure', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-  { title: 'Unlock PDF', desc: 'Remove passwords from your protected files.', icon: Unlock, implemented: true, path: '/unlock', category: 'Secure', color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
-  { title: 'Rotate PDF', desc: 'Fix page orientation permanently.', icon: RotateCw, implemented: true, path: '/rotate-pdf', category: 'Edit', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-  { title: 'Rearrange PDF', desc: 'Drag and drop pages to reorder them.', icon: ArrowUpDown, implemented: true, path: '/rearrange-pdf', category: 'Edit', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-  { title: 'Page Numbers', desc: 'Add numbering to your documents automatically.', icon: Hash, implemented: true, path: '/page-numbers', category: 'Edit', color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
-  { title: 'Watermark', desc: 'Overlay custom text for branding or security.', icon: Type, implemented: true, path: '/watermark', category: 'Edit', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-  { title: 'Metadata', desc: 'Edit document properties for better privacy.', icon: Tags, implemented: true, path: '/metadata', category: 'Secure', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
-  { title: 'Signature', desc: 'Add your electronic signature to any document.', icon: PenTool, implemented: true, path: '/signature', category: 'Edit', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
-  { title: 'Grayscale', desc: 'Convert all document pages to black and white.', icon: Palette, implemented: true, path: '/grayscale', category: 'Optimize', color: 'text-zinc-500', bg: 'bg-zinc-50 dark:bg-zinc-900/20' },
-  { title: 'PDF to Image', desc: 'Convert document pages into high-quality images.', icon: FileImage, implemented: true, path: '/pdf-to-image', category: 'Convert', color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-900/20' },
-  { title: 'Image to PDF', desc: 'Convert JPG, PNG, and WebP into a professional PDF.', icon: ImagePlus, implemented: true, path: '/image-to-pdf', category: 'Convert', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
-  { title: 'Extract Images', desc: 'Pull out all original images embedded in a PDF.', icon: FileImage, implemented: true, path: '/extract-images', category: 'Convert', color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-  { title: 'PDF to Text', desc: 'Extract plain text from your PDF documents.', icon: FileText, implemented: true, path: '/pdf-to-text', category: 'Convert', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/20' },
-  { title: 'Repair PDF', desc: 'Attempt to fix corrupted or unreadable documents.', icon: Wrench, implemented: true, path: '/repair', category: 'Optimize', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-900/20' },
+  { title: 'دمج PDF', titleEn: 'Merge PDF', desc: 'اجمع عدة ملفات PDF في مستند واحد.', descEn: 'Combine files into one document.', icon: Layers, implemented: true, path: '/merge', category: 'Edit', color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20' },
+  { title: 'تقسيم PDF', titleEn: 'Split PDF', desc: 'استخرج صفحات أو نطاقات محددة بصريًا.', descEn: 'Extract specific pages or ranges.', icon: Scissors, implemented: true, path: '/split', category: 'Edit', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { title: 'ضغط PDF', titleEn: 'Compress PDF', desc: 'قلّل حجم ملفك لسهولة المشاركة.', descEn: 'Shrink file size, keep quality.', icon: Zap, implemented: true, path: '/compress', category: 'Optimize', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+  { title: 'حماية PDF', titleEn: 'Protect PDF', desc: 'احمِ مستنداتك بتشفير قوي.', descEn: 'Lock files with a password.', icon: Lock, implemented: true, path: '/protect', category: 'Secure', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+  { title: 'إزالة حماية PDF', titleEn: 'Unlock PDF', desc: 'أزل كلمات المرور من ملفاتك المحمية.', descEn: 'Remove password protection.', icon: Unlock, implemented: true, path: '/unlock', category: 'Secure', color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
+  { title: 'تدوير PDF', titleEn: 'Rotate PDF', desc: 'صحّح اتجاه الصفحات بشكل دائم.', descEn: 'Fix page orientation permanently.', icon: RotateCw, implemented: true, path: '/rotate-pdf', category: 'Edit', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+  { title: 'إعادة ترتيب PDF', titleEn: 'Rearrange PDF', desc: 'اسحب وأفلت الصفحات لإعادة ترتيبها.', descEn: 'Drag and drop pages to reorder.', icon: ArrowUpDown, implemented: true, path: '/rearrange-pdf', category: 'Edit', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+  { title: 'علامة مائية', titleEn: 'Watermark', desc: 'أضف نصًا مخصصًا للعلامة التجارية أو الحماية.', descEn: 'Add custom text for branding or protection.', icon: Type, implemented: true, path: '/watermark', category: 'Edit', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+  { title: 'التوقيع', titleEn: 'Sign PDF', desc: 'أضف توقيعك الإلكتروني إلى أي مستند.', descEn: 'Add your electronic signature to any document.', icon: PenTool, implemented: true, path: '/signature', category: 'Edit', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
+  { title: 'PDF إلى صورة', titleEn: 'PDF to Image', desc: 'حوّل صفحات المستند إلى صور عالية الجودة.', descEn: 'Convert PDF pages to high-quality images.', icon: FileImage, implemented: true, path: '/pdf-to-image', category: 'Convert', color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-900/20' },
+  { title: 'صورة إلى PDF', titleEn: 'Image to PDF', desc: 'حوّل JPG وPNG وWebP إلى PDF احترافي.', descEn: 'Convert JPG, PNG, WebP to professional PDF.', icon: ImagePlus, implemented: true, path: '/image-to-pdf', category: 'Convert', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
+  { title: 'PDF إلى نص', titleEn: 'PDF to Text', desc: 'استخرج النص العادي من مستندات PDF.', descEn: 'Extract plain text from PDF documents.', icon: FileText, implemented: true, path: '/pdf-to-text', category: 'Convert', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/20' },
+
+  { title: 'إزالة خلفية الصور', titleEn: 'Remove Background', desc: 'أزل خلفية أي صورة بضغطة زر — مثالي للبائعين على إنستغرام.', descEn: 'Remove image background with one click — ideal for Instagram sellers.', icon: Wand2, implemented: true, path: '/remove-bg', category: 'Convert', color: 'text-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20' },
+  { title: 'تحويل Word ↔️ PDF', titleEn: 'Word ↔️ PDF', desc: 'حوّل مستندات Word إلى PDF والعكس بسهولة.', descEn: 'Convert Word documents to PDF and back.', icon: FileType2, implemented: true, path: '/word-to-pdf', category: 'Convert', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { title: 'صانع السيرة الذاتية', titleEn: 'CV Maker', desc: 'أنشئ سيرة ذاتية احترافية بالعربي جاهزة للطباعة.', descEn: 'Create a professional Arabic CV ready to print.', icon: UserCircle, implemented: true, path: '/cv-maker', category: 'Convert', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+  { title: 'محرر الصور الاحترافي', titleEn: 'Image Editor', desc: 'عدّل الألوان، ارفع الدقة، وأزل أي عنصر من صورتك.', descEn: 'Adjust colors, upscale, and remove elements from your photo.', icon: Brush, implemented: true, path: '/image-editor', category: 'Edit', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
 ]
 
 export const IS_OCR_DISABLED = import.meta.env.VITE_DISABLE_OCR === 'true'
-export const activeTools = IS_OCR_DISABLED 
-  ? tools.filter(t => t.path !== '/pdf-to-text') 
-  : tools
-
+export const activeTools = IS_OCR_DISABLED ? tools.filter(t => t.path !== '/pdf-to-text') : tools
 export const PRIVACY_URL = 'https://potatameister.github.io/privacy/paperknife'
 
-// Privacy spec lives on the support site; the in-app route hands off.
 function PrivacyRedirect() {
-  useEffect(() => {
-    window.location.replace(PRIVACY_URL)
-  }, [])
+  useEffect(() => { window.location.replace(PRIVACY_URL) }, [])
   return null
 }
 
 function QuickDropModal({ file, onClear, onBack }: { file: File, onClear: () => void, onBack?: () => void }) {
   const navigate = useNavigate()
   const { setPipelineFile } = usePipeline()
-  const [showMore, setShowMore] = useState(false)
-  
   const essentials = activeTools.slice(0, 4)
-  const otherTools = activeTools.slice(4)
 
   const handleAction = async (path: string, title: string) => {
-    toast.loading(`Importing ${file.name}...`, { id: 'quick-load' })
-    
+    toast.loading(`جارٍ استيراد ${file.name}...`, { id: 'quick-load' })
     try {
       const buffer = await file.arrayBuffer()
       setPipelineFile({
         buffer: new Uint8Array(buffer),
         name: file.name,
-        type: file.type || (file.name.endsWith('.zip') ? 'application/zip' : 'application/pdf')
+        type: file.type || 'application/pdf'
       })
-
       onClear()
       navigate(path)
-      toast.success(`Opened in ${title}`, { id: 'quick-load' })
-    } catch (err) {
-      toast.error('Failed to process file', { id: 'quick-load' })
+      toast.success(`تم الفتح في ${title}`, { id: 'quick-load' })
+    } catch {
+      toast.error('فشل معالجة الملف', { id: 'quick-load' })
     }
   }
 
   return (
     <div className="fixed inset-0 z-[600] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
       <div className="w-full max-w-md bg-[#FAFAFA] dark:bg-zinc-950 rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border-t border-x border-white/10 sm:border animate-in slide-in-from-bottom-full duration-500 ease-out">
-        
-        {/* Header */}
         <div className="p-6 pb-2">
           <div className="flex items-center justify-between mb-6">
-             <div className="flex items-center gap-3">
-                {onBack && (
-                  <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-rose-500 transition-colors">
-                    <ChevronDown className="rotate-90" size={20} />
-                  </button>
-                )}
-                <div className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-500/20">
-                   <FileText size={20} />
-                </div>
-                <div className="min-w-0">
-                   <h3 className="text-lg font-black dark:text-white truncate max-w-[200px] leading-none mb-1">{file.name}</h3>
-                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{(file.size / (1024*1024)).toFixed(2)} MB • PDF Document</p>
-                </div>
-             </div>
-             <button onClick={onClear} className="p-2 bg-gray-100 dark:bg-zinc-900 rounded-full text-gray-400 hover:text-rose-500 transition-colors"><X size={18}/></button>
+            <div className="flex items-center gap-3">
+              {onBack && (
+                <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-rose-500 transition-colors">
+                  <ChevronDown className="rotate-90" size={20} />
+                </button>
+              )}
+              <div className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-500/20">
+                <FileText size={20} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-black dark:text-white truncate max-w-[200px] leading-none mb-1">{file.name}</h3>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+              </div>
+            </div>
+            <button onClick={onClear} className="p-2 bg-gray-100 dark:bg-zinc-900 rounded-full text-gray-400 hover:text-rose-500 transition-colors"><X size={18} /></button>
           </div>
         </div>
-        
         <div className="px-6 pb-6 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
-           <div>
-              <h4 className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-3 ml-1">Essentials</h4>
-              <div className="grid grid-cols-2 gap-2.5">
-                 {essentials.map(tool => (
-                   <button
-                     key={tool.title}
-                     onClick={() => tool.path && handleAction(tool.path, tool.title)}
-                     className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-zinc-800 active:scale-95 transition-all shadow-sm group"
-                   >
-                     <div className={`p-2 rounded-xl ${tool.bg} ${tool.color} group-active:scale-110 transition-transform`}>
-                       <tool.icon size={18} strokeWidth={2.5} />
-                     </div>
-                     <span className="text-xs font-bold text-gray-900 dark:text-zinc-200">{tool.title}</span>
-                   </button>
-                 ))}
-              </div>
-           </div>
-
-           <div>
-              <button 
-                onClick={() => setShowMore(!showMore)}
-                className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-rose-500 transition-colors shadow-sm"
-              >
-                <span>Full Tool Catalog</span>
-                <ChevronDown size={14} className={`transition-transform duration-300 ${showMore ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {showMore && (
-                <div className="grid grid-cols-2 gap-2.5 mt-3 animate-in slide-in-from-top-2 duration-300 pb-2">
-                   {otherTools.map(tool => (
-                     <button
-                       key={tool.title}
-                       onClick={() => tool.path && handleAction(tool.path, tool.title)}
-                       className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-zinc-800 active:scale-95 transition-all shadow-sm group"
-                     >
-                       <div className={`p-2 rounded-xl ${tool.bg} ${tool.color} group-active:scale-110 transition-transform`}>
-                         <tool.icon size={18} strokeWidth={2.5} />
-                       </div>
-                       <span className="text-xs font-bold text-gray-900 dark:text-zinc-200">{tool.title}</span>
-                     </button>
-                   ))}
-                </div>
-              )}
-           </div>
+          <div>
+            <h4 className="text-[10px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-[0.2em] mb-3 ml-1">الأساسيات</h4>
+            <div className="grid grid-cols-2 gap-2.5">
+              {essentials.map(tool => (
+                <button
+                  key={tool.title}
+                  onClick={() => tool.path && handleAction(tool.path, tool.title)}
+                  className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-zinc-800 active:scale-95 transition-all shadow-sm group"
+                >
+                  <div className={`p-2 rounded-xl ${tool.bg} ${tool.color} group-active:scale-110 transition-transform`}>
+                    <tool.icon size={18} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-xs font-bold text-gray-900 dark:text-zinc-200">{tool.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: { 
-  theme: Theme, 
-  toggleTheme: () => void, 
+function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
+  theme: Theme,
+  toggleTheme: () => void,
   setTheme: (t: Theme) => void,
   viewMode: ViewMode,
   setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>
@@ -207,7 +169,6 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [showQuickDrop, setShowQuickDrop] = useState(false)
 
-  // Hardware back button: close QuickDrop first, else route back, else exit on home
   useBackHandler(showQuickDrop, () => setShowQuickDrop(false))
   useEffect(() => {
     ensureBackListening()
@@ -218,7 +179,6 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
     return () => setBackFallback(null)
   }, [location.pathname, navigate])
 
-  // Improved Auto-Wipe Logic
   useEffect(() => {
     const isAutoWipeEnabled = localStorage.getItem('autoWipe') === 'true'
     const timerMinutes = parseInt(localStorage.getItem('autoWipeTimer') || '15')
@@ -233,72 +193,30 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
         })
       }
     }
-
     updateLastSeen()
     const interval = setInterval(updateLastSeen, 30000)
     return () => clearInterval(interval)
-  }, [])
-
-  // Handle Intent Files (Android "Open With" / "Share to")
-  useEffect(() => {
-    const handleIntentFile = async (uri: string) => {
-      try {
-        toast.loading('Importing file...', { id: 'intent-load' })
-        const fileContent = await Filesystem.readFile({ path: uri })
-        const blob = await (await fetch(`data:application/pdf;base64,${fileContent.data}`)).blob()
-        const fileName = uri.split('/').pop() || 'imported-file.pdf'
-        const file = new File([blob], fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`, { type: 'application/pdf' })
-        setDroppedFile(file)
-        toast.success('File imported successfully!', { id: 'intent-load' })
-      } catch (error) {
-        console.error('Intent load error:', error)
-        toast.error('Failed to import file.', { id: 'intent-load' })
-      }
-    }
-
-    const onFileIntent = (e: any) => {
-      if (e.detail?.uri) {
-        handleIntentFile(e.detail.uri)
-      }
-    }
-
-    window.addEventListener('fileIntent', onFileIntent)
-    return () => window.removeEventListener('fileIntent', onFileIntent)
-  }, [])
-
-  // Handle Global Quick Drop Trigger (from other components)
-  useEffect(() => {
-    const handleGlobalTrigger = (e: any) => {
-      if (e.detail?.file) {
-        setDroppedFile(e.detail.file)
-        setShowQuickDrop(true)
-      }
-    }
-    window.addEventListener('open-quick-drop' as any, handleGlobalTrigger)
-    return () => window.removeEventListener('open-quick-drop' as any, handleGlobalTrigger)
   }, [])
 
   const handleGlobalDrop = (files: FileList | File[]) => {
     const fileArray = Array.from(files)
     if (fileArray.length === 0) return
 
-    // If all files are images, redirect to Image to PDF tool
     const allImages = fileArray.every(f => f.type.startsWith('image/'))
     if (allImages) {
       setPipelineFiles(fileArray)
       navigate('/image-to-pdf')
-      toast.success(`Imported ${fileArray.length} images`)
+      toast.success(`تم استيراد ${fileArray.length} صور`)
       return
     }
 
-    // Otherwise look for the first PDF
     const file = fileArray.find(f => f.type === 'application/pdf')
     if (!file) {
-      toast.error('Please select a PDF file or images.')
+      toast.error('الرجاء اختيار ملف PDF أو صور.')
       return
     }
     setDroppedFile(file)
-    setShowQuickDrop(false) // Show preview first
+    setShowQuickDrop(false)
   }
 
   const LoadingSpinner = () => (
@@ -310,89 +228,102 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
   const resolvedTheme = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
 
   return (
-    <Layout theme={resolvedTheme} toggleTheme={toggleTheme} tools={activeTools} onFileDrop={handleGlobalDrop} viewMode={viewMode}>
-      <Toaster 
-        position="top-center" 
-        expand={true} 
-        richColors 
-        duration={2000}
-        toastOptions={{
-          className: 'dark:bg-zinc-900 dark:text-white dark:border-white/10 mt-12',
-          style: { zIndex: 1000 }
-        }}
-      />
-      
+    <>
+      <Toaster position="top-center" expand={true} richColors duration={2000} />
+
       {droppedFile && (
-        <PdfPreview 
-          file={droppedFile} 
-          onClose={() => {
-            setDroppedFile(null)
-            setShowQuickDrop(false)
-          }} 
-          onProcess={() => setShowQuickDrop(true)} 
+        <PdfPreview
+          file={droppedFile}
+          onClose={() => { setDroppedFile(null); setShowQuickDrop(false) }}
+          onProcess={() => setShowQuickDrop(true)}
         />
       )}
 
       {droppedFile && showQuickDrop && (
-        <QuickDropModal 
-          file={droppedFile} 
-          onClear={() => {
-            setDroppedFile(null)
-            setShowQuickDrop(false)
-          }} 
+        <QuickDropModal
+          file={droppedFile}
+          onClear={() => { setDroppedFile(null); setShowQuickDrop(false) }}
           onBack={() => setShowQuickDrop(false)}
         />
       )}
 
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          <Route path="/" element={
-            viewMode === 'web' ? (
-              <WebView tools={activeTools} />
-            ) : (
-              <AndroidView toggleTheme={toggleTheme} theme={resolvedTheme} onFileSelect={(file) => handleGlobalDrop([file] as any)} />
-            )
+          {/* 🌐 الصفحة الرئيسية الجديدة (متاحة للجميع) */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* 🌐 صفحات عامة (بدون حماية) */}
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* 🔒 كل صفحات الموقع محمية وتحتوي على التصميم الداخلي (Layout) */}
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <Layout theme={resolvedTheme} toggleTheme={toggleTheme} tools={activeTools} onFileDrop={handleGlobalDrop} viewMode={viewMode}>
+                <Routes>
+                  {/* لوحة تحكم الأدوات الآن على مسار /tools */}
+                  <Route path="/tools" element={
+                    viewMode === 'web' ? (
+                      <WebView tools={activeTools} />
+                    ) : (
+                      <AndroidView
+                        tools={activeTools}
+                        toggleTheme={toggleTheme}
+                        theme={resolvedTheme}
+                        onFileSelect={(file) => handleGlobalDrop([file] as any)}
+                      />
+                    )
+                  } />
+                  <Route path="/android-tools" element={<AndroidToolsView tools={activeTools} />} />
+                  <Route path="/android-history" element={<AndroidHistoryView />} />
+                  
+                  {/* الأدوات الداخلية */}
+                  <Route path="/merge" element={<MergeTool />} />
+                  <Route path="/split" element={<SplitTool />} />
+                  <Route path="/protect" element={<ProtectTool />} />
+                  <Route path="/unlock" element={<UnlockTool />} />
+                  <Route path="/compress" element={<CompressTool />} />
+                  <Route path="/pdf-to-image" element={<PdfToImageTool />} />
+                  <Route path="/rotate-pdf" element={<RotateTool />} />
+                  {!IS_OCR_DISABLED && <Route path="/pdf-to-text" element={<PdfToTextTool />} />}
+                  <Route path="/rearrange-pdf" element={<RearrangeTool />} />
+                  <Route path="/watermark" element={<WatermarkTool />} />
+                  <Route path="/image-to-pdf" element={<ImageToPdfTool />} />
+                  <Route path="/signature" element={<SignatureTool />} />
+
+                  <Route path="/remove-bg" element={<RemoveBackgroundTool />} />
+                  <Route path="/word-to-pdf" element={<WordToPdfTool />} />
+                  <Route path="/cv-maker" element={<CvMakerTool />} />
+                  <Route path="/image-editor" element={<ImageEditorTool />} />
+
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/history" element={<HistoryPage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+
+                  <Route path="/about" element={<About viewMode={viewMode} />} />
+                  <Route path="/privacy" element={<PrivacyRedirect />} />
+                  <Route path="/settings" element={<SettingsView theme={theme} setTheme={setTheme} />} />
+                  <Route path="/thanks" element={<Thanks />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
           } />
-          <Route path="/android-tools" element={<AndroidToolsView tools={activeTools} />} />
-          <Route path="/android-history" element={<AndroidHistoryView />} />
-          <Route path="/merge" element={<MergeTool />} />
-          <Route path="/split" element={<SplitTool />} />
-          <Route path="/protect" element={<ProtectTool />} />
-          <Route path="/unlock" element={<UnlockTool />} />
-          <Route path="/compress" element={<CompressTool />} />
-          <Route path="/pdf-to-image" element={<PdfToImageTool />} />
-          <Route path="/rotate-pdf" element={<RotateTool />} />
-          {!IS_OCR_DISABLED && <Route path="/pdf-to-text" element={<PdfToTextTool />} />}
-          <Route path="/rearrange-pdf" element={<RearrangeTool />} />
-          <Route path="/watermark" element={<WatermarkTool />} />
-          <Route path="/page-numbers" element={<PageNumberTool />} />
-          <Route path="/metadata" element={<MetadataTool />} />
-          <Route path="/image-to-pdf" element={<ImageToPdfTool />} />
-          <Route path="/signature" element={<SignatureTool />} />
-          <Route path="/repair" element={<RepairTool />} />
-          <Route path="/extract-images" element={<ExtractImagesTool />} />
-          <Route path="/grayscale" element={<GrayscaleTool />} />
-          <Route path="/about" element={<About viewMode={viewMode} />} />
-          <Route path="/privacy" element={<PrivacyRedirect />} />
-          <Route path="/settings" element={<SettingsView theme={theme} setTheme={setTheme} />} />
-          <Route path="/thanks" element={<Thanks />} />
         </Routes>
       </Suspense>
 
-      {/* Chameleon Toggle (Dev Only) */}
       {import.meta.env.DEV && (
         <div className="fixed bottom-24 right-6 z-[100] flex flex-col gap-2">
           <button
             onClick={() => setViewMode(prev => prev === 'web' ? 'android' : 'web')}
             className="bg-gray-900 dark:bg-zinc-800 text-white p-4 rounded-3xl shadow-2xl hover:bg-rose-500 transition-all duration-300 flex items-center gap-3 border border-white/10 group active:scale-95"
-            title="Toggle Chameleon Mode"
+            title="تبديل وضع الحرباء"
           >
             {viewMode === 'web' ? <SmartphoneIcon size={20} /> : <MonitorIcon size={20} />}
             <span className="text-xs font-black uppercase tracking-tighter">{viewMode}</span>
           </button>
         </div>
       )}
-    </Layout>
+    </>
   )
 }
 
@@ -408,19 +339,15 @@ function App() {
     return 'system'
   })
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light')
-  }
+  const toggleTheme = () => { setTheme(prev => prev === 'light' ? 'dark' : 'light') }
 
   useEffect(() => {
     const root = window.document.documentElement
-    
     const applyTheme = (t: Theme) => {
       let resolvedTheme = t
       if (t === 'system') {
         resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
       }
-      
       if (resolvedTheme === 'dark') {
         root.classList.add('dark')
         root.style.colorScheme = 'dark'
@@ -429,10 +356,8 @@ function App() {
         root.style.colorScheme = 'light'
       }
     }
-
     applyTheme(theme)
     localStorage.setItem('theme', theme)
-
     if (theme === 'system') {
       const media = window.matchMedia('(prefers-color-scheme: dark)')
       const listener = () => applyTheme('system')
@@ -446,12 +371,12 @@ function App() {
       <ScrollToTop />
       <ViewModeProvider viewMode={viewMode} setViewMode={setViewMode}>
         <PipelineProvider>
-          <AppContent 
-            theme={theme} 
-            toggleTheme={toggleTheme} 
-            setTheme={setTheme} 
-            viewMode={viewMode} 
-            setViewMode={setViewMode} 
+          <AppContent
+            theme={theme}
+            toggleTheme={toggleTheme}
+            setTheme={setTheme}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
           />
         </PipelineProvider>
       </ViewModeProvider>

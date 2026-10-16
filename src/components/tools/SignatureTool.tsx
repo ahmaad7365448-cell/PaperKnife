@@ -18,8 +18,6 @@ type Placement = { id: string, page: number, x: number, y: number, size: number,
 const SIG_STORE_KEY = 'paperknife-signatures'
 const MAX_SAVED_SIGS = 5
 
-// Acrobat-style auto-crop: trims transparent margins (draw pad) and
-// near-white paper margins (photo uploads), keeping a small padding.
 const trimSignature = async (blob: Blob): Promise<Blob> => {
   try {
     const bitmap = await createImageBitmap(blob)
@@ -89,9 +87,6 @@ function SignaturePad({ onSave, onCancel, inkColor }: { onSave: (blob: Blob) => 
     ctx.lineJoin = 'round'
   }, [])
 
-  // Touchscreens deliver move events sparsely; the browser records the
-  // in-between (coalesced) points. Drawing all of them turns dotted
-  // strokes into solid ink.
   const pointsFrom = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current
     if (!canvas) return []
@@ -112,9 +107,6 @@ function SignaturePad({ onSave, onCancel, inkColor }: { onSave: (blob: Blob) => 
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
     const last = lastPoint.current ?? pt
-    // Stamp solid ink along the whole segment: some WebViews never deliver
-    // coalesced points, so sparse endpoints alone would dot at speed.
-    // Stamping every ~1px guarantees a solid stroke at any velocity.
     const dx = pt.x - last.x, dy = pt.y - last.y
     const dist = Math.hypot(dx, dy)
     const n = Math.max(1, Math.ceil(dist / 1.5))
@@ -125,7 +117,6 @@ function SignaturePad({ onSave, onCancel, inkColor }: { onSave: (blob: Blob) => 
       ctx.arc(x, y, 1.5, 0, Math.PI * 2)
       ctx.fill()
     }
-    // Smoothed connector on top for round joins.
     ctx.strokeStyle = inkRef.current
     ctx.lineWidth = 3
     ctx.lineCap = 'round'
@@ -139,7 +130,6 @@ function SignaturePad({ onSave, onCancel, inkColor }: { onSave: (blob: Blob) => 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDrawing(true)
     const pts = pointsFrom(e)
-    // A tap without movement still leaves a dot.
     lastPoint.current = pts[0] ?? null
     if (pts[0]) {
       const canvas = canvasRef.current
@@ -206,8 +196,6 @@ export default function SignatureTool() {
   const [unlockPassword, setUnlockPassword] = useState(''); const [activePage, setActivePage] = useState(1)
   const [sigMode, setSigMode] = useState<'draw' | null>(null)
   const [thumbnail, setThumbnail] = useState<string | null>(null)
-  // One signature can be stamped many times, on any pages. Each placement
-  // remembers its own page, spot, size, and image.
   const [placements, setPlacements] = useState<Placement[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const dragRef = useRef<{ id: string, mode: 'move' | 'resize' } | null>(null)
@@ -321,9 +309,6 @@ export default function SignatureTool() {
 
   const thumbImgRef = useRef<HTMLImageElement>(null)
 
-  // Coordinates map against the rendered page image itself, NOT the preview
-  // box: object-contain letterboxes non-matching aspects, so box-relative
-  // percentages land in the wrong place on output.
   const previewPoint = (e: React.MouseEvent | React.TouchEvent) => {
     const imgRect = thumbImgRef.current?.getBoundingClientRect()
     const boxRect = previewRef.current?.getBoundingClientRect()
@@ -344,7 +329,6 @@ export default function SignatureTool() {
       if (drag.mode === 'move') {
         return { ...p, x: Math.max(0, Math.min(100, pt.x)), y: Math.max(0, Math.min(100, pt.y)) }
       }
-      // size is % of page width: resolution-independent, always exact.
       const curPx = (p.size / 100) * pt.rect.width
       const sigLeftPx = (p.x / 100) * pt.rect.width
       const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
@@ -355,10 +339,6 @@ export default function SignatureTool() {
 
   const endDrag = () => { dragRef.current = null }
 
-  // Tapping empty preview stamps another copy at that spot, on this page.
-  // Each placement owns a persistent dataURL copy: the live object URL can
-  // be revoked on replace/remove, which used to corrupt placed copies and
-  // fail the save.
   const stampAt = async (e: React.MouseEvent) => {
     if (!signatureImg || dragRef.current) return
     const pt = previewPoint(e)
@@ -412,9 +392,6 @@ export default function SignatureTool() {
         const { width, height } = page.getSize()
         const rotRaw = Number((page.getRotation() as any)?.angle ?? 0)
         const rot = ((Math.round(rotRaw) % 360) + 360) % 360
-        // The preview shows the page as rendered (rotation applied), while
-        // drawImage works in unrotated space: map the visual tap point back.
-        // Fractions are from top-left in both spaces.
         const xv = p.x / 100, yv = p.y / 100
         let xu = xv, yu = yv
         if (rot === 90) { xu = yv; yu = 1 - xv }
@@ -423,8 +400,6 @@ export default function SignatureTool() {
         const visualW = (rot === 90 || rot === 270) ? height : width
         const w = (p.size / 100) * visualW
         const h = w * (sigImage.height / sigImage.width)
-        // Preview centers the stamp on the tap point (translate -50%/-50%),
-        // so output must center too — not pin to the top-left corner.
         const pdfX = (xu * width) - w / 2
         const pdfY = (height - (yu * height)) - h / 2
         page.drawImage(sigImage, { x: pdfX, y: pdfY, width: w, height: h })

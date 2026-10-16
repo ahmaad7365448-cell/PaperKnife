@@ -1,0 +1,337 @@
+// src/translations.ts
+// ملف الترجمات العربية والإنجليزية
+
+export const translations = {
+  en: {
+    // الهوية
+    appName: "PaperKnife",
+    tagline: "All-in-one PDF toolkit. 100% private, runs in your browser.",
+
+    // القائمة الرئيسية
+    home: "Home",
+    tools: "Tools",
+    about: "About",
+    contact: "Contact",
+
+    // الأدوات
+    merge: "Merge PDF",
+    mergeDesc: "Combine multiple PDFs into one",
+    split: "Split PDF",
+    splitDesc: "Split a PDF into multiple files",
+    compress: "Compress PDF",
+    compressDesc: "Reduce PDF file size",
+    sign: "Sign PDF",
+    signDesc: "Add your signature to a PDF",
+    protect: "Protect PDF",
+    protectDesc: "Add password protection",
+    unlock: "Unlock PDF",
+    unlockDesc: "Remove password protection",
+    rotate: "Rotate PDF",
+    rotateDesc: "Rotate pages in a PDF",
+    watermark: "Watermark PDF",
+    watermarkDesc: "Add watermark to your PDF",
+    pdfToImages: "PDF to Images",
+    pdfToImagesDesc: "Convert PDF pages to images",
+    imagesToPdf: "Images to PDF",
+    imagesToPdfDesc: "Convert images to a PDF file",
+    ocr: "OCR - Extract Text",
+    ocrDesc: "Extract text from PDF or image",
+    wordToPdf: "Word to PDF",
+    wordToPdfDesc: "Convert Word documents to PDF",
+    pdfToWord: "PDF to Word",
+    pdfToWordDesc: "Convert PDF to Word document",
+    removeBg: "Remove Background",
+    removeBgDesc: "Remove image background automatically",
+
+    // الأزرار العامة
+    upload: "Upload File",
+    uploadFiles: "Upload Files",
+    download: "Download",
+    downloadAll: "Download All",
+    process: "Process",
+    cancel: "Cancel",
+    delete: "Delete",
+    reset: "Reset",
+    save: "Save",
+    close: "Close",
+    back: "Back",
+    next: "Next",
+    previous: "Previous",
+    confirm: "Confirm",
+    apply: "Apply",
+
+    // الحالات
+    loading: "Loading...",
+    processing: "Processing...",
+    uploading: "Uploading...",
+    done: "Done!",
+    success: "Success",
+    error: "Error",
+    warning: "Warning",
+    fileSelected: "File selected",
+    noFileSelected: "No file selected",
+    dropFiles: "Drop files here or click to browse",
+    dragDrop: "Drag & drop files here",
+
+    // الخصوصية
+    privacyTitle: "Your Privacy is Protected",
+    privacyDesc: "All processing happens locally in your browser. Your files never leave your device.",
+    noUpload: "No Upload Required",
+    local: "100% Local",
+    free: "Completely Free",
+    noSignup: "No Signup Required",
+
+    // اللغة
+    language: "Language",
+    arabic: "العربية",
+    english: "English",
+
+    // الفوتر
+    footer: "Made with ❤️ for a private web",
+    rights: "All rights reserved",
+
+    // SEO
+    pageTitle: "PaperKnife - Free Online PDF Tools (100% Private)",
+    pageDesc: "Merge, split, compress, sign PDFs. Remove image backgrounds. Convert Word to PDF. All free, all local, no upload.",
+
+    // سيرة ذاتية
+    cvBuilder: "Arabic CV Builder",
+    cvBuilderDesc: "Create a professional CV in Arabic, ready for Turkey & Germany",
+
+    // رفع الملفات
+    chooseFile: "Choose File",
+    multipleFiles: "You can select multiple files",
+    totalFiles: "Total Files",
+    fileSize: "File Size",
+    pageCount: "Page Count",
+
+    // معالجة PDF
+    mergeOrder: "Merge Order",
+    dragToReorder: "Drag to reorder files",
+    selectPages: "Select Pages",
+    pageRange: "Page Range",
+    example: "Example",
+    outputFormat: "Output Format",
+    quality: "Quality",
+    compressionLevel: "Compression Level",
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+
+    // أخطاء
+    errorFileType: "Invalid file type",
+    errorFileSize: "File too large",
+    errorNetwork: "Network error, please try again",
+    errorUnknown: "Unknown error occurred",
+    errorPassword: "Incorrect password",
+
+    // رموز
+    new: "NEW",
+    popular: "Popular",
+    recommended: "Recommended",
+
+    // واجهة إضافية
+    allTools: "All tools",
+    toolLabel: "Tool",
+    myProfile: "My Profile",
+    historyLabel: "History",
+    signOut: "Sign Out",
+    signIn: "Sign In",
+    userLabel: "User",
+    activity: "Activity",
+    noRecentFiles: "No recent files",
+    downloadAgain: "Download again",
+    settingsLabel: "Settings",
+    quickActions: "Quick Actions",
+    essentials: "Essentials",
+    protocol: "Protocol",
+    ecosystem: "Ecosystem",
+    privacyPolicy: "Privacy Policy",
+    license: "License",
+    reportBug: "Report Bug",
+    supportUs: "Support Us",
+    hallOfFame: "Hall of Fame",
+    dropFileToStart: "Drop file to start",
+    importingFile: "Importing",
+    openedIn: "Opened in",
+    signOutSuccess: "Signed out successfully",
+    signOutError: "Error signing out",
+    unknownError: "Unknown error occurred",
+    categoryEdit: "Edit",
+    categorySecure: "Secure",
+    categoryConvert: "Convert",
+    categoryOptimize: "Optimize",
+    darkMode: "Dark Mode",
+    lightMode: "Light Mode",
+    switchToArabic: "التبديل إلى العربية",
+    switchToEnglish: "Switch to English",
+  },
+
+  ar: {
+    // الهوية
+    appName: "سكين الملفات",
+    tagline: "مجموعة أدوات PDF شاملة. خصوصية 100%، تعمل في متصفحك.",
+
+    // القائمة الرئيسية
+    home: "الرئيسية",
+    tools: "الأدوات",
+    about: "من نحن",
+    contact: "اتصل بنا",
+
+    // الأدوات
+    merge: "دمج PDF",
+    mergeDesc: "اجمع عدة ملفات PDF في ملف واحد",
+    split: "تقسيم PDF",
+    splitDesc: "قسّم ملف PDF إلى عدة ملفات",
+    compress: "ضغط PDF",
+    compressDesc: "قلّل حجم ملف PDF",
+    sign: "توقيع PDF",
+    signDesc: "أضف توقيعك إلى ملف PDF",
+    protect: "حماية PDF",
+    protectDesc: "أضف حماية بكلمة مرور",
+    unlock: "إزالة حماية PDF",
+    unlockDesc: "أزل حماية كلمة المرور",
+    rotate: "تدوير PDF",
+    rotateDesc: "دوّر صفحات ملف PDF",
+    watermark: "علامة مائية PDF",
+    watermarkDesc: "أضف علامة مائية إلى ملفك",
+    pdfToImages: "PDF إلى صور",
+    pdfToImagesDesc: "حوّل صفحات PDF إلى صور",
+    imagesToPdf: "صور إلى PDF",
+    imagesToPdfDesc: "حوّل الصور إلى ملف PDF واحد",
+    ocr: "استخراج النص OCR",
+    ocrDesc: "استخرج النص من PDF أو صورة",
+    wordToPdf: "Word إلى PDF",
+    wordToPdfDesc: "حوّل مستندات Word إلى PDF",
+    pdfToWord: "PDF إلى Word",
+    pdfToWordDesc: "حوّل PDF إلى مستند Word",
+    removeBg: "إزالة الخلفية",
+    removeBgDesc: "أزل خلفية الصورة تلقائيًا",
+
+    // الأزرار العامة
+    upload: "رفع ملف",
+    uploadFiles: "رفع ملفات",
+    download: "تحميل",
+    downloadAll: "تحميل الكل",
+    process: "معالجة",
+    cancel: "إلغاء",
+    delete: "حذف",
+    reset: "إعادة تعيين",
+    save: "حفظ",
+    close: "إغلاق",
+    back: "رجوع",
+    next: "التالي",
+    previous: "السابق",
+    confirm: "تأكيد",
+    apply: "تطبيق",
+
+    // الحالات
+    loading: "جارٍ التحميل...",
+    processing: "جارٍ المعالجة...",
+    uploading: "جارٍ الرفع...",
+    done: "تم!",
+    success: "نجاح",
+    error: "خطأ",
+    warning: "تحذير",
+    fileSelected: "تم اختيار الملف",
+    noFileSelected: "لم يتم اختيار ملف",
+    dropFiles: "أفلت الملفات هنا أو انقر للتصفح",
+    dragDrop: "اسحب وأفلت الملفات هنا",
+
+    // الخصوصية
+    privacyTitle: "خصوصيتك محمية",
+    privacyDesc: "كل المعالجة تتم محليًا في متصفحك. ملفاتك لا تغادر جهازك أبدًا.",
+    noUpload: "لا حاجة للرفع",
+    local: "محلي 100%",
+    free: "مجاني تمامًا",
+    noSignup: "بدون تسجيل",
+
+    // اللغة
+    language: "اللغة",
+    arabic: "العربية",
+    english: "English",
+
+    // الفوتر
+    footer: "صُنع بـ ❤️ من أجل ويب خاص",
+    rights: "جميع الحقوق محفوظة",
+
+    // SEO
+    pageTitle: "سكين الملفات - أدوات PDF مجانية أونلاين (خصوصية 100%)",
+    pageDesc: "دمج، تقسيم، ضغط، توقيع ملفات PDF. إزالة خلفية الصور. تحويل Word إلى PDF. كل شيء مجاني، محلي، وبدون رفع.",
+
+    // سيرة ذاتية
+    cvBuilder: "مولّد السيرة الذاتية بالعربي",
+    cvBuilderDesc: "أنشئ سيرة ذاتية احترافية بالعربية، جاهزة لتركيا وألمانيا",
+
+    // رفع الملفات
+    chooseFile: "اختر ملفًا",
+    multipleFiles: "يمكنك اختيار عدة ملفات",
+    totalFiles: "إجمالي الملفات",
+    fileSize: "حجم الملف",
+    pageCount: "عدد الصفحات",
+
+    // معالجة PDF
+    mergeOrder: "ترتيب الدمج",
+    dragToReorder: "اسحب لإعادة الترتيب",
+    selectPages: "اختر الصفحات",
+    pageRange: "نطاق الصفحات",
+    example: "مثال",
+    outputFormat: "صيغة الإخراج",
+    quality: "الجودة",
+    compressionLevel: "مستوى الضغط",
+    low: "منخفض",
+    medium: "متوسط",
+    high: "عالي",
+
+    // أخطاء
+    errorFileType: "نوع الملف غير صالح",
+    errorFileSize: "الملف كبير جدًا",
+    errorNetwork: "خطأ في الشبكة، حاول مرة أخرى",
+    errorUnknown: "حدث خطأ غير معروف",
+    errorPassword: "كلمة مرور خاطئة",
+
+    // رموز
+    new: "جديد",
+    popular: "شائع",
+    recommended: "موصى به",
+
+    // واجهة إضافية
+    allTools: "كل الأدوات",
+    toolLabel: "أداة",
+    myProfile: "ملفي الشخصي",
+    historyLabel: "سجل العمليات",
+    signOut: "تسجيل الخروج",
+    signIn: "تسجيل الدخول",
+    userLabel: "مستخدم",
+    activity: "النشاط",
+    noRecentFiles: "لا توجد ملفات حديثة",
+    downloadAgain: "إعادة التحميل",
+    settingsLabel: "الإعدادات",
+    quickActions: "إجراءات سريعة",
+    essentials: "الأساسيات",
+    protocol: "البروتوكول",
+    ecosystem: "النظام البيئي",
+    privacyPolicy: "سياسة الخصوصية",
+    license: "الترخيص",
+    reportBug: "أبلغ عن خطأ",
+    supportUs: "ادعمنا",
+    hallOfFame: "لوحة الشرف",
+    dropFileToStart: "أفلت الملف للبدء",
+    importingFile: "جارٍ استيراد",
+    openedIn: "تم الفتح في",
+    signOutSuccess: "تم تسجيل الخروج بنجاح",
+    signOutError: "حدث خطأ أثناء تسجيل الخروج",
+    unknownError: "حدث خطأ غير معروف",
+    categoryEdit: "تعديل",
+    categorySecure: "حماية",
+    categoryConvert: "تحويل",
+    categoryOptimize: "تحسين",
+    darkMode: "الوضع الداكن",
+    lightMode: "الوضع الفاتح",
+    switchToArabic: "التبديل إلى العربية",
+    switchToEnglish: "Switch to English",
+  }
+};
+
+export type Language = 'en' | 'ar';
+export type TranslationKey = keyof typeof translations.en;

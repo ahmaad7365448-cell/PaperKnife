@@ -39,7 +39,6 @@
 }
 
 html, body {
-  @apply bg-[#FAFAFA] dark:bg-black;
   margin: 0;
   padding: 0;
   height: 100%;
@@ -48,45 +47,77 @@ html, body {
 
 body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  @apply text-gray-900 dark:text-zinc-100 bg-[#FAFAFA] dark:bg-black transition-colors duration-500 ease-in-out;
+  @apply text-gray-900 dark:text-zinc-100 transition-colors duration-500 ease-in-out;
   overflow-x: hidden;
 }
 
-/* Global seamless theme transition - target only background and text colors */
+/* =========================================
+   🎨 خلفيات الأدوات (الصور المعبرة)
+   ========================================= */
+.themed-page {
+  min-height: 100vh;
+  width: 100%;
+  background-color: #0f172a; /* لون احتياطي داكن أنيق */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  position: relative;
+}
+
+/* طبقة تعتيم داكنة لضمان وضوح النصوص */
+.themed-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.8); /* نسبة التعتيم 80% */
+  z-index: 0;
+}
+
+.themed-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================
+   🪄 الحل السحري: إبراز صناديق (Select PDF)
+   ========================================= */
+button.border-dashed, div.border-dashed {
+    background-color: #ffffff; /* خلفية بيضاء صلبة للوضع الفاتح */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.dark button.border-dashed, .dark div.border-dashed {
+    background-color: #27272a; /* خلفية داكنة صلبة للوضع الليلي (Zinc-800) */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+button.border-dashed:hover, div.border-dashed:hover {
+    background-color: #fff1f2; /* لون وردي فاتح عند التمرير (Hover) */
+}
+
+.dark button.border-dashed:hover, div.border-dashed:hover {
+    background-color: #4c0519; /* لون وردي داكن عند التمرير */
+}
+
+/* =========================================
+   ⚙️ إعدادات عامة وتأثيرات حركية
+   ========================================= */
 .theme-transition {
   @apply transition-colors duration-500 ease-in-out;
 }
 
-/* Specific component transitions */
 header, footer, nav, aside, main, section, div, button, input, select {
   transition: background-color 0.5s ease-in-out, border-color 0.5s ease-in-out, color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
 }
 
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.mt-safe { margin-top: env(safe-area-inset-top); }
 
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.mt-safe {
-  margin-top: env(safe-area-inset-top);
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-200 dark:bg-zinc-800 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-300 dark:bg-zinc-700;
-}
+/* شريط التمرير المخصص */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-gray-200 dark:bg-zinc-800 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-300 dark:bg-zinc-700; }

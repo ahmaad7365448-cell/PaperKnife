@@ -1,32 +1,39 @@
-import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
-import { Capacitor } from '@capacitor/core';
+/**
+ * Haptics - نسخة بدون Capacitor (تعمل على Vercel)
+ * Vibrate API الأصلية في المتصفح
+ */
 
-export const hapticImpact = async (style = ImpactStyle.Medium) => {
-  if (Capacitor.isNativePlatform() && localStorage.getItem('hapticsEnabled') === 'true') {
-    try {
-      await Haptics.impact({ style });
-    } catch (e) {
-      console.warn('Haptics not supported');
+export function hapticImpact() {
+  try {
+    // استخدام Vibration API الأصلي في المتصفح
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(10)
     }
+  } catch {
+    // تجاهل الأخطاء (بعض المتصفحات لا تدعم)
   }
-};
+}
 
-export const hapticSuccess = async () => {
-  if (Capacitor.isNativePlatform() && localStorage.getItem('hapticsEnabled') === 'true') {
-    try {
-      await Haptics.notification({ type: NotificationType.Success });
-    } catch (e) {
-      console.warn('Haptics not supported');
+export function hapticSuccess() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([10, 50, 10])
     }
-  }
-};
+  } catch { /* ignore */ }
+}
 
-export const hapticSelection = async () => {
-  if (Capacitor.isNativePlatform() && localStorage.getItem('hapticsEnabled') === 'true') {
-    try {
-      await Haptics.selectionStart();
-    } catch (e) {
-      console.warn('Haptics not supported');
+export function hapticError() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([50, 30, 50])
     }
-  }
-};
+  } catch { /* ignore */ }
+}
+
+export function hapticLight() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(5)
+    }
+  } catch { /* ignore */ }
+}

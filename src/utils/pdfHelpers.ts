@@ -12,10 +12,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-// Explicitly import the worker as a URL so Vite handles it correctly
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// pdfjs-dist v3 uses .js worker, v4+ uses .mjs
+// Use CDN to avoid bundling issues on Vercel
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export interface PdfMetaData {
   thumbnail: string
@@ -35,22 +35,19 @@ const getCMapUrl = () => {
 export const downloadFile = async (data: Uint8Array | string, fileName: string, mimeType: string) => {
   if (Capacitor.isNativePlatform()) {
     try {
-      // For Android, we use the Filesystem API
       let base64Data = '';
       if (typeof data === 'string') {
         base64Data = data.includes(',') ? data.split(',')[1] : data;
       } else {
-        // High-performance chunked base64 conversion
         const bytes = new Uint8Array(data);
         const chunks = [];
-        const chunkSize = 0x8000; // 32KB chunks
+        const chunkSize = 0x8000;
         for (let i = 0; i < bytes.length; i += chunkSize) {
           chunks.push(String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize))));
         }
         base64Data = btoa(chunks.join(''));
       }
 
-      // Resolve duplicate filenames
       let finalName = fileName;
       let counter = 1;
       const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
@@ -62,11 +59,9 @@ export const downloadFile = async (data: Uint8Array | string, fileName: string, 
             path: finalName,
             directory: Directory.Documents
           });
-          // If stat succeeds, file exists
           finalName = `${baseName} (${counter})${extension}`;
           counter++;
         } catch (e) {
-          // If stat fails, file doesn't exist, we can use this name
           break;
         }
       }
@@ -84,7 +79,6 @@ export const downloadFile = async (data: Uint8Array | string, fileName: string, 
       throw e;
     }
   } else {
-    // Standard Web Download
     const blob = typeof data === 'string' 
       ? await (await fetch(data)).blob() 
       : new Blob([data as BlobPart], { type: mimeType });
@@ -106,15 +100,13 @@ export const downloadFile = async (data: Uint8Array | string, fileName: string, 
 export const shareFile = async (data: Uint8Array | string, fileName: string, mimeType: string) => {
   if (Capacitor.isNativePlatform()) {
     try {
-      // For Android, we save to Cache directory first, then share
       let base64Data = '';
       if (typeof data === 'string') {
         base64Data = data.includes(',') ? data.split(',')[1] : data;
       } else {
-        // High-performance chunked base64 conversion
         const bytes = new Uint8Array(data);
         const chunks = [];
-        const chunkSize = 0x8000; // 32KB chunks
+        const chunkSize = 0x8000;
         for (let i = 0; i < bytes.length; i += chunkSize) {
           chunks.push(String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize))));
         }
@@ -124,7 +116,7 @@ export const shareFile = async (data: Uint8Array | string, fileName: string, mim
       const result = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache, // Use Cache for temporary sharing
+        directory: Directory.Cache,
         recursive: true
       });
 
@@ -141,7 +133,6 @@ export const shareFile = async (data: Uint8Array | string, fileName: string, mim
       throw e;
     }
   } else {
-    // Web Share API
     const blob = typeof data === 'string' 
       ? await (await fetch(data)).blob() 
       : new Blob([data as BlobPart], { type: mimeType });
@@ -161,12 +152,11 @@ export const shareFile = async (data: Uint8Array | string, fileName: string, mim
       }
     }
     
-    // Fallback to download if sharing is not supported
     return downloadFile(data, fileName, mimeType);
   }
 };
 
-// Optimized: Load the PDF Document once
+// Load the PDF Document once
 export const loadPdfDocument = async (file: File) => {
   const arrayBuffer = await file.arrayBuffer();
   try {
@@ -190,15 +180,12 @@ export const loadPdfDocument = async (file: File) => {
   }
 };
 
-// Optimized: Render a specific page from an already loaded PDF Document
-// maxDpr caps device-pixel-ratio scaling (viewer passes 1.5 for live pages:
-// same perceived sharpness, ~44% less bitmap RAM vs dpr 2).
+// Render a specific page from an already loaded PDF Document
 export const renderPageThumbnail = async (pdf: any, pageNum: number, scale = 1.0, maxDpr = 2): Promise<string> => {
   try {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: scale });
 
-    // High-quality preview (1200px)
     const maxDimension = 1200;
     const thumbnailScale = Math.min(maxDimension / viewport.width, maxDimension / viewport.height);
     const dpr = window.devicePixelRatio || 1;
@@ -217,7 +204,6 @@ export const renderPageThumbnail = async (pdf: any, pageNum: number, scale = 1.0
     await page.render({ canvasContext: context, viewport: thumbViewport, intent: 'print' }).promise;
     const dataUrl = canvas.toDataURL('image/webp', 0.8) || canvas.toDataURL('image/jpeg', 0.9);
     
-    // Memory cleanup
     canvas.width = 0;
     canvas.height = 0;
     try { await page.cleanup(); } catch { /* ignore */ }
@@ -228,16 +214,13 @@ export const renderPageThumbnail = async (pdf: any, pageNum: number, scale = 1.0
   }
 };
 
-/**
- * ULTRA-FAST: Render a small thumbnail for grids/lists
- * Uses lower dimension and higher compression to save RAM on 100+ page docs
- */
+// ULTRA-FAST: Render a small thumbnail for grids/lists
 export const renderGridThumbnail = async (pdf: any, pageNum: number): Promise<string> => {
   try {
     const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 0.5 }); // Lower initial scale
+    const viewport = page.getViewport({ scale: 0.5 });
     
-    const maxDimension = 400; // Small but crisp for grids
+    const maxDimension = 400;
     const thumbnailScale = Math.min(maxDimension / viewport.width, maxDimension / viewport.height);
     const thumbViewport = page.getViewport({ scale: thumbnailScale });
 
@@ -252,7 +235,6 @@ export const renderGridThumbnail = async (pdf: any, pageNum: number): Promise<st
     
     await page.render({ canvasContext: context, viewport: thumbViewport, intent: 'display' }).promise;
     
-    // Higher compression for grid thumbnails
     const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
     
     canvas.width = 0;
@@ -283,7 +265,6 @@ export const destroyPdf = async (pdf: any) => {
 
 export const getPdfMetaData = async (file: File): Promise<PdfMetaData> => {
   const attempt = async (lenient: boolean): Promise<PdfMetaData> => {
-    // Fresh bytes per attempt: pdf.js may detach the buffer it is given.
     const loadingTask = pdfjsLib.getDocument({
       data: await file.arrayBuffer(),
       cMapUrl: getCMapUrl(),
@@ -310,7 +291,6 @@ export const getPdfMetaData = async (file: File): Promise<PdfMetaData> => {
     if (error.message === 'PASSWORD_REQUIRED' || error.name === 'PasswordException') {
       return { thumbnail: '', pageCount: 0, isLocked: true };
     }
-    // Quirky-but-readable files: retry with the lenient parser (mirrors loadPdfDocument)
     try {
       return await attempt(true);
     } catch {

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { toast } from 'sonner'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User, Globe, Calendar, Phone, AlertCircle, ArrowLeft, KeyRound, CheckCircle2 } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, User, Globe, Phone, AlertCircle } from 'lucide-react'
 
 const countries = [
   'تركيا (Türkiye)', 'المملكة العربية السعودية', 'الإمارات العربية المتحدة', 'مصر',
@@ -21,7 +21,7 @@ const countryCodes: Record<string, string> = {
 }
 
 type IntroPhase = 'idle' | 'pushed' | 'flickering' | 'settled'
-type AuthMode = 'login' | 'signup' | 'forgot'
+type AuthMode = 'login' | 'signup'
 
 function GlowInput({
   icon, type = 'text', value, onChange, placeholder, error,
@@ -101,15 +101,11 @@ export default function AuthPage() {
   const [country, setCountry] = useState(countries[0])
   const [phone, setPhone] = useState('')
   const [phoneCode, setPhoneCode] = useState(countryCodes[countries[0]])
-  const [day, setDay] = useState('')
-  const [month, setMonth] = useState('')
-  const [year, setYear] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIlluminated, setIsIlluminated] = useState(true)
   const [isFormFocused, setIsFormFocused] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [forgotSent, setForgotSent] = useState(false)
 
   const [introPhase, setIntroPhase] = useState<IntroPhase>('idle')
   const [lampOn, setLampOn] = useState(false)
@@ -119,9 +115,6 @@ export default function AuthPage() {
   const [isPulling, setIsPulling] = useState(false)
   const pullStartRef = useRef(0)
 
-  const dayRef = useRef<HTMLInputElement>(null)
-  const monthRef = useRef<HTMLInputElement>(null)
-  const yearRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -129,7 +122,6 @@ export default function AuthPage() {
 
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup'
-  const isForgot = mode === 'forgot'
 
   useEffect(() => { setPhoneCode(countryCodes[country] || '+') }, [country])
 
@@ -228,50 +220,17 @@ export default function AuthPage() {
     if (errors[field]) setErrors(prev => { const n = { ...prev }; delete n[field]; return n })
   }
 
-  const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, '').slice(0, 2)
-    if (parseInt(val) > 31) val = '31'
-    setDay(val); clearError('birthDate')
-    const num = parseInt(val)
-    if (val.length === 2 || (val.length === 1 && num > 3)) monthRef.current?.focus()
-  }
-
-  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, '').slice(0, 2)
-    if (parseInt(val) > 12) val = '12'
-    setMonth(val); clearError('birthDate')
-    const num = parseInt(val)
-    if (val.length === 2 || (val.length === 1 && num > 1)) yearRef.current?.focus()
-  }
-
-  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setYear(e.target.value.replace(/\D/g, '').slice(0, 4)); clearError('birthDate')
-  }
-
-  const handleDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, field: 'day' | 'month' | 'year') => {
-    if (e.key === 'ArrowLeft') {
-      if (field === 'day') monthRef.current?.focus()
-      else if (field === 'month') yearRef.current?.focus()
-    }
-    if (e.key === 'ArrowRight') {
-      if (field === 'year') monthRef.current?.focus()
-      else if (field === 'month') dayRef.current?.focus()
-    }
-  }
-
   const validate = () => {
     const newErrors: Record<string, string> = {}
     if (!email.trim()) newErrors.email = 'البريد الإلكتروني مطلوب'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'البريد الإلكتروني غير صحيح'
 
-    if (!isForgot) {
-      if (!password.trim()) newErrors.password = 'كلمة المرور مطلوبة'
-    }
+    if (!password.trim()) newErrors.password = 'كلمة المرور مطلوبة'
+    
     if (isSignup) {
       if (!firstName.trim()) newErrors.firstName = 'الرجاء إدخال الاسم'
       if (!lastName.trim()) newErrors.lastName = 'الرجاء إدخال الكنية'
       if (!phone.trim()) newErrors.phone = 'الرجاء إدخال رقم الهاتف'
-      if (!day || !month || !year || year.length < 4) newErrors.birthDate = 'الرجاء إدخال تاريخ ميلاد كامل'
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -286,10 +245,10 @@ export default function AuthPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
+          // تم التحديث هنا للتوافق مع BrowserRouter
           redirectTo: `${window.location.origin}/`,
           queryParams: provider === 'google' ? {
             access_type: 'offline',
-            prompt: 'consent',
           } : undefined,
         },
       })
@@ -306,7 +265,7 @@ export default function AuthPage() {
   }
 
   // ==========================================================
-  // 🔐 تسجيل الدخول / التسجيل / استعادة كلمة المرور
+  // 🔐 تسجيل الدخول / التسجيل
   // ==========================================================
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -317,17 +276,6 @@ export default function AuthPage() {
 
     setLoading(true)
     try {
-      if (isForgot) {
-        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: `${window.location.origin}/#/reset-password`,
-        })
-        if (error) throw error
-
-        setForgotSent(true)
-        toast.success('تم إرسال رابط الاستعادة إلى بريدك 📧')
-        return
-      }
-
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword })
         if (error) {
@@ -341,7 +289,6 @@ export default function AuthPage() {
         return
       }
 
-      const birthDateFormatted = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
       const fullPhone = `${phoneCode}${phone.replace(/\s/g, '')}`
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -352,7 +299,6 @@ export default function AuthPage() {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             country: country,
-            birth_date: birthDateFormatted,
             phone: fullPhone,
           }
         }
@@ -383,7 +329,6 @@ export default function AuthPage() {
   const switchMode = (newMode: AuthMode) => {
     setMode(newMode)
     setErrors({})
-    setForgotSent(false)
     if (newMode !== 'login') setPassword('')
   }
 
@@ -834,156 +779,65 @@ export default function AuthPage() {
         <div className="w-full lg:w-[60%] p-6 sm:p-10 flex flex-col justify-center">
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
-              {isForgot ? (
-                <>استعادة <span className="text-rose-500">كلمة المرور</span></>
-              ) : isLogin ? (
+              {isLogin ? (
                 <>Welcome <span className="text-rose-500">Back.</span></>
               ) : (
                 <>ابدأ <span className="text-rose-500">رحلتك.</span></>
               )}
             </h1>
             <p className="text-xs text-zinc-500">
-              {isForgot
-                ? 'أدخل بريدك الإلكتروني وسنرسل لك رابط استعادة كلمة المرور'
-                : isLogin
-                  ? 'اسحب الحبل لإضاءة طريقك'
-                  : 'أنشئ حسابك للبدء باستخدام الأدوات'}
+              {isLogin
+                ? 'اسحب الحبل لإضاءة طريقك'
+                : 'أنشئ حسابك للبدء باستخدام الأدوات'}
             </p>
           </div>
 
-          {isForgot ? (
-            forgotSent ? (
-              <div className="py-8 text-center animate-in fade-in zoom-in duration-500">
-                <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 size={40} className="text-emerald-400" />
-                </div>
-                <h3 className="text-xl font-black text-white mb-2">تم الإرسال! 📧</h3>
-                <p className="text-xs text-zinc-500 mb-2 leading-relaxed">أرسلنا رابط الاستعادة إلى:</p>
-                <p className="text-sm font-bold text-rose-400 mb-6 break-all px-4" dir="ltr">{email}</p>
-                <p className="text-[11px] text-zinc-500 mb-6 leading-relaxed">
-                  تحقق من صندوق الوارد (وحتى مجلد Spam). الرابط صالح لمدة ساعة.
-                </p>
-                <button
-                  onClick={() => { switchMode('login'); setEmail('') }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 hover:border-rose-500 text-rose-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95"
-                >
-                  <ArrowRight size={14} className="rotate-180" />
-                  العودة لتسجيل الدخول
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAuth} className="space-y-5"
-                onFocus={() => setIsFormFocused(true)}
-                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFormFocused(false) }}
-              >
-                <div>
-                  <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">البريد الإلكتروني</label>
-                  <GlowInput
-                    icon={<Mail size={16} />}
-                    type="email"
-                    value={email}
-                    onChange={(v) => { setEmail(v); clearError('email') }}
-                    placeholder="name@example.com"
-                    error={errors.email}
-                  />
-                </div>
-
-                <button type="submit" disabled={loading}
-                  className="signin-btn w-full mt-6 text-white font-black py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer tracking-wider">
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      <KeyRound size={16} />
-                      <span>إرسال رابط الاستعادة</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="pt-4 border-t border-rose-500/10">
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className="w-full flex items-center justify-center gap-2 text-xs font-bold text-zinc-500 hover:text-rose-400 transition-colors py-2"
-                  >
-                    <ArrowRight size={14} className="rotate-180" />
-                    العودة لتسجيل الدخول
-                  </button>
-                </div>
-              </form>
-            )
-          ) : (
-            <form onSubmit={handleAuth} className="space-y-4"
-              onFocus={() => setIsFormFocused(true)}
-              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFormFocused(false) }}
-            >
-              {isSignup && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الاسم</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
-                        <input type="text" value={firstName}
-                          onChange={(e) => { setFirstName(e.target.value); clearError('firstName') }}
-                          placeholder="أحمد"
-                          className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
-                            errors.firstName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
-                          }`} />
-                      </div>
-                      {errors.firstName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.firstName}</p>}
+          <form onSubmit={handleAuth} className="space-y-4"
+            onFocus={() => setIsFormFocused(true)}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFormFocused(false) }}
+          >
+            {isSignup && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الاسم</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
+                      <input type="text" value={firstName}
+                        onChange={(e) => { setFirstName(e.target.value); clearError('firstName') }}
+                        placeholder="أحمد"
+                        className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                          errors.firstName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
+                        }`} />
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الكنية</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
-                        <input type="text" value={lastName}
-                          onChange={(e) => { setLastName(e.target.value); clearError('lastName') }}
-                          placeholder="العشين"
-                          className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
-                            errors.lastName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
-                          }`} />
-                      </div>
-                      {errors.lastName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.lastName}</p>}
+                    {errors.firstName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.firstName}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الكنية</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
+                      <input type="text" value={lastName}
+                        onChange={(e) => { setLastName(e.target.value); clearError('lastName') }}
+                        placeholder="العشين"
+                        className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                          errors.lastName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
+                        }`} />
+                    </div>
+                    {errors.lastName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.lastName}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الدولة</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 pointer-events-none"><Globe size={16} /></span>
+                      <select value={country} onChange={(e) => setCountry(e.target.value)}
+                        className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 text-sm text-white focus:outline-none focus:border-rose-400 transition-all cursor-pointer appearance-none">
+                        {countries.map((c) => <option key={c} value={c} className="bg-[#1a0a10] text-white">{c}</option>)}
+                      </select>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الدولة</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 pointer-events-none"><Globe size={16} /></span>
-                        <select value={country} onChange={(e) => setCountry(e.target.value)}
-                          className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 text-sm text-white focus:outline-none focus:border-rose-400 transition-all cursor-pointer appearance-none">
-                          {countries.map((c) => <option key={c} value={c} className="bg-[#1a0a10] text-white">{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">تاريخ الميلاد</label>
-                      <div className={`flex items-center gap-1.5 bg-[#1a0a10] border rounded-xl p-2 px-3 ${
-                        errors.birthDate ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus-within:border-rose-400'
-                      }`}>
-                        <Calendar size={16} className="text-zinc-500 shrink-0 ml-1" />
-                        <input ref={dayRef} type="text" inputMode="numeric" maxLength={2}
-                          placeholder="DD" value={day} onChange={handleDayChange}
-                          onKeyDown={(e) => handleDateKeyDown(e, 'day')}
-                          className="w-10 bg-transparent text-center text-sm font-bold text-white placeholder-zinc-600 focus:outline-none" />
-                        <span className="text-zinc-600 font-bold">/</span>
-                        <input ref={monthRef} type="text" inputMode="numeric" maxLength={2}
-                          placeholder="MM" value={month} onChange={handleMonthChange}
-                          onKeyDown={(e) => handleDateKeyDown(e, 'month')}
-                          className="w-10 bg-transparent text-center text-sm font-bold text-white placeholder-zinc-600 focus:outline-none" />
-                        <span className="text-zinc-600 font-bold">/</span>
-                        <input ref={yearRef} type="text" inputMode="numeric" maxLength={4}
-                          placeholder="YYYY" value={year} onChange={handleYearChange}
-                          onKeyDown={(e) => handleDateKeyDown(e, 'year')}
-                          className="w-16 bg-transparent text-center text-sm font-bold text-white placeholder-zinc-600 focus:outline-none" />
-                      </div>
-                      {errors.birthDate && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.birthDate}</p>}
-                    </div>
-                  </div>
-
                   <div>
                     <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">رقم الهاتف</label>
                     <div className={`flex items-center bg-[#1a0a10] border rounded-xl overflow-hidden transition-all ${
@@ -1001,109 +855,105 @@ export default function AuthPage() {
                     {errors.phone && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.phone}</p>}
                   </div>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">البريد الإلكتروني</label>
-                <GlowInput
-                  icon={<Mail size={16} />}
-                  type="email"
-                  value={email}
-                  onChange={(v) => { setEmail(v); clearError('email') }}
-                  placeholder="name@example.com"
-                  error={errors.email}
-                />
               </div>
+            )}
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider">كلمة المرور</label>
-                  {isLogin && (
-                    <button
-                      type="button"
-                      onClick={() => switchMode('forgot')}
-                      className="text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:underline transition-colors uppercase tracking-wider"
-                    >
-                      هل نسيت كلمة المرور؟
-                    </button>
-                  )}
-                </div>
-                <GlowInput
-                  icon={<Lock size={16} />}
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(v) => { setPassword(v); clearError('password') }}
-                  placeholder="••••••••"
-                  error={errors.password}
-                  isPassword
-                  showPassword={showPassword}
-                  onTogglePassword={() => setShowPassword(!showPassword)}
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">البريد الإلكتروني</label>
+              <GlowInput
+                icon={<Mail size={16} />}
+                type="email"
+                value={email}
+                onChange={(v) => { setEmail(v); clearError('email') }}
+                placeholder="name@example.com"
+                error={errors.email}
+              />
+            </div>
 
-              <button type="submit" disabled={loading}
-                className="signin-btn w-full mt-6 text-white font-black py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer tracking-wider">
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <span>{isLogin ? 'SIGN IN' : 'ابدأ رحلتك ✨'}</span>
-                    <ArrowRight size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
-                  </>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider">كلمة المرور</label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reset-password')}
+                    className="text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:underline transition-colors uppercase tracking-wider"
+                  >
+                    هل نسيت كلمة المرور؟
+                  </button>
                 )}
-              </button>
-            </form>
-          )}
+              </div>
+              <GlowInput
+                icon={<Lock size={16} />}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(v) => { setPassword(v); clearError('password') }}
+                placeholder="••••••••"
+                error={errors.password}
+                isPassword
+                showPassword={showPassword}
+                onTogglePassword={() => setShowPassword(!showPassword)}
+              />
+            </div>
+
+            <button type="submit" disabled={loading}
+              className="signin-btn w-full mt-6 text-white font-black py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer tracking-wider">
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>{isLogin ? 'SIGN IN' : 'ابدأ رحلتك ✨'}</span>
+                  <ArrowRight size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
+                </>
+              )}
+            </button>
+          </form>
 
           {/* الفاصل + السوشيال */}
-          {!isForgot && (
-            <>
-              <div className="flex items-center my-5">
-                <div className="flex-1 h-[1px] bg-rose-500/15"></div>
-                <span className="px-3 text-zinc-500 text-xs">أو</span>
-                <div className="flex-1 h-[1px] bg-rose-500/15"></div>
-              </div>
+          <div className="flex items-center my-5">
+            <div className="flex-1 h-[1px] bg-rose-500/15"></div>
+            <span className="px-3 text-zinc-500 text-xs">أو</span>
+            <div className="flex-1 h-[1px] bg-rose-500/15"></div>
+          </div>
 
-              <div className="flex gap-3">
-                {/* 🎯 زر Google */}
-                <button
-                  type="button"
-                  onClick={() => handleOAuth('google')}
-                  disabled={loading}
-                  className="flex-1 bg-[#1a0a10] border border-rose-500/20 rounded-xl py-2.5 flex items-center justify-center gap-2 text-white text-xs font-bold hover:border-rose-400 hover:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Google
-                </button>
+          <div className="flex gap-3">
+            {/* 🎯 زر Google */}
+            <button
+              type="button"
+              onClick={() => handleOAuth('google')}
+              disabled={loading}
+              className="flex-1 bg-[#1a0a10] border border-rose-500/20 rounded-xl py-2.5 flex items-center justify-center gap-2 text-white text-xs font-bold hover:border-rose-400 hover:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all cursor-pointer disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Google
+            </button>
 
-                {/* 🎯 زر Facebook */}
-                <button
-                  type="button"
-                  onClick={() => handleOAuth('facebook')}
-                  disabled={loading}
-                  className="flex-1 bg-[#1a0a10] border border-rose-500/20 rounded-xl py-2.5 flex items-center justify-center gap-2 text-white text-xs font-bold hover:border-rose-400 hover:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" fill="#1877F2" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                  Facebook
-                </button>
-              </div>
+            {/* 🎯 زر Facebook */}
+            <button
+              type="button"
+              onClick={() => handleOAuth('facebook')}
+              disabled={loading}
+              className="flex-1 bg-[#1a0a10] border border-rose-500/20 rounded-xl py-2.5 flex items-center justify-center gap-2 text-white text-xs font-bold hover:border-rose-400 hover:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all cursor-pointer disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="#1877F2" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              Facebook
+            </button>
+          </div>
 
-              <p className="text-center text-[11px] text-zinc-500 mt-5">
-                {isLogin ? 'ليس لديك حساب؟ ' : 'لديك حساب بالفعل؟ '}
-                <button type="button" onClick={() => switchMode(isLogin ? 'signup' : 'login')}
-                  className="text-rose-400 hover:underline font-bold cursor-pointer">
-                  {isLogin ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
-                </button>
-              </p>
-            </>
-          )}
+          <p className="text-center text-[11px] text-zinc-500 mt-5">
+            {isLogin ? 'ليس لديك حساب؟ ' : 'لديك حساب بالفعل؟ '}
+            <button type="button" onClick={() => switchMode(isLogin ? 'signup' : 'login')}
+              className="text-rose-400 hover:underline font-bold cursor-pointer">
+              {isLogin ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
+            </button>
+          </p>
         </div>
       </div>
     </div>

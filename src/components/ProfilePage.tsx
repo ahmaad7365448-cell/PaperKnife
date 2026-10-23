@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
-import { useAuth } from '../AuthContext'
 import { toast } from 'sonner'
-import {
-  User, Mail, Phone, Globe, Calendar, Lock, Eye, EyeOff,
-  Save, Loader2, LogOut, Shield, Award, TrendingUp,
-  AlertCircle, CheckCircle2, ArrowRight, X, KeyRound,
-  MapPin, Clock, FileText, Sparkles
+import { useAuth } from '../AuthContext'
+import { 
+  User, Mail, Globe, Phone, Save, X, Camera, 
+  ShieldCheck, Calendar, FileText, Clock, Loader2, AlertCircle
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const countries = [
   'تركيا (Türkiye)', 'المملكة العربية السعودية', 'الإمارات العربية المتحدة', 'مصر',
@@ -26,676 +24,392 @@ const countryCodes: Record<string, string> = {
   'جيبوتي': '+253', 'جزر القمر': '+269', 'أخرى': '+',
 }
 
-export default function ProfilePage() {
-  const navigate = useNavigate()
-  const { user, profile, signOut, refreshProfile } = useAuth()
+const phoneLengths: Record<string, number> = {
+  'تركيا (Türkiye)': 10, 'المملكة العربية السعودية': 9, 'الإمارات العربية المتحدة': 9,
+  'مصر': 10, 'الجزائر': 9, 'المغرب': 9, 'تونس': 8, 'العراق': 10,
+  'الأردن': 9, 'سوريا': 9, 'لبنان': 8, 'فلسطين': 9, 'قطر': 8,
+  'الكويت': 8, 'البحرين': 8, 'سلطنة عمان': 8, 'اليمن': 9,
+  'السودان': 9, 'ليبيا': 9, 'موريتانيا': 8, 'الصومال': 9,
+  'جيبوتي': 8, 'جزر القمر': 7, 'أخرى': 15
+}
 
-  // ===== حالات التعديل =====
-  const [isEditing, setIsEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
+export default function ProfilePage() {
+  const { user, profile } = useAuth()
+  const navigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [country, setCountry] = useState(countries[0])
+  const [phoneCode, setPhoneCode] = useState(countryCodes[countries[0]])
   const [phone, setPhone] = useState('')
-  const [phoneCode, setPhoneCode] = useState('+90')
-  const [birthDate, setBirthDate] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  
+  const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // ===== حالة تغيير كلمة المرور =====
-  const [showPasswordSection, setShowPasswordSection] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [passwordLoading, setPasswordLoading] = useState(false)
-  const [passwordError, setPasswordError] = useState('')
-
-  // ===== إحصائيات =====
-  const [stats, setStats] = useState({ files: 0, tools: 0 })
-
-  // ===== تحميل البيانات الأولية =====
   useEffect(() => {
     if (profile) {
       setFirstName(profile.first_name || '')
       setLastName(profile.last_name || '')
       setCountry(profile.country || countries[0])
-      setBirthDate(profile.birth_date || '')
-      const fullPhone = profile.phone || ''
-      // استخراج كود الدولة
-      let foundCode = '+90'
-      let foundNumber = fullPhone
-      for (const [c, code] of Object.entries(countryCodes)) {
-        if (fullPhone.startsWith(code)) {
-          foundCode = code
-          foundNumber = fullPhone.slice(code.length)
-          break
+      
+      if (profile.avatar_url) {
+        setAvatarUrl(profile.avatar_url)
+      }
+
+      if (profile.phone) {
+        const userPhone = profile.phone
+        const code = Object.values(countryCodes).find(c => userPhone.startsWith(c))
+        if (code) {
+          setPhoneCode(code)
+          setPhone(userPhone.replace(code, '').trim())
+        } else {
+          setPhone(userPhone)
         }
       }
-      setPhoneCode(foundCode)
-      setPhone(foundNumber)
     }
-  }, [profile])
 
-  // ===== إحصائيات النشاط =====
-  useEffect(() => {
-    import('../utils/recentActivity').then(({ getRecentActivity }) => {
-      getRecentActivity().then((activity) => {
-        setStats({
-          files: activity.length,
-          tools: new Set(activity.map(a => a.tool)).size,
+    if (user) {
+      const meta = user.user_metadata || {}
+      const fullName = meta.full_name || meta.name || ''
+
+      if (!firstName && !lastName && fullName) {
+        const parts = fullName.split(' ')
+        setFirstName(meta.first_name || parts[0] || '')
+        setLastName(meta.last_name || parts.slice(1).join(' ') || '')
+      } else {
+        if (!firstName && meta.first_name) setFirstName(meta.first_name)
+        if (!lastName && meta.last_name) setLastName(meta.last_name)
+      }
+
+      const oauthAvatar = meta.avatar_url || meta.picture
+      setAvatarUrl(prev => prev || profile?.avatar_url || oauthAvatar || null)
+    }
+  }, [profile, user])
+
+  useEffect(() => { 
+    setPhoneCode(countryCodes[country] || '+')
+    const maxLength = phoneLengths[country] || 15
+    if (phone.length > maxLength) {
+      setPhone(phone.slice(0, maxLength))
+    }
+  }, [country])
+
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true)
+      if (!user) throw new Error('يرجى تسجيل الدخول أولاً')
+      if (!event.target.files || event.target.files.length === 0) return
+
+      const file = event.target.files[0]
+      if (file.size > 5 * 1024 * 1024) throw new Error('حجم الصورة يجب أن يكون أقل من 5 ميجابايت')
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+
+      let finalAvatarUrl = ''
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true, cacheControl: '3600' })
+
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+        finalAvatarUrl = publicUrl
+      } else {
+        finalAvatarUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(file)
         })
-      })
-    })
-  }, [])
+      }
 
-  // ===== الأحرف الأولى =====
-  const getInitials = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return (profile.first_name[0] + profile.last_name[0]).toUpperCase()
+      await supabase.auth.updateUser({
+        data: { avatar_url: finalAvatarUrl }
+      })
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          avatar_url: finalAvatarUrl,
+          country: country,
+          phone: phone.trim() ? `${phoneCode}${phone.replace(/\s/g, '')}` : null
+        }, { onConflict: 'id' })
+
+      if (updateError) console.error('Profiles DB notice:', updateError)
+
+      setAvatarUrl(finalAvatarUrl)
+      toast.success('تم تحديث الصورة الشخصية بنجاح! 📸')
+    } catch (error: any) {
+      console.error('Avatar upload error:', error)
+      toast.error('حدث خطأ أثناء رفع الصورة: ' + (error.message || 'حاول مرة أخرى'))
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
-    if (profile?.first_name) return profile.first_name[0].toUpperCase()
+  }
+
+  const clearError = (field: string) => {
+    if (errors[field]) setErrors(prev => { const n = { ...prev }; delete n[field]; return n })
+  }
+
+  const handleSave = async () => {
+    if (!user) {
+      toast.error('يرجى تسجيل الدخول أولاً')
+      return
+    }
+
+    const newErrors: Record<string, string> = {}
+    if (!firstName.trim()) newErrors.firstName = 'الاسم الأول مطلوب'
+    if (!lastName.trim()) newErrors.lastName = 'الكنية مطلوبة'
+    
+    const maxLength = phoneLengths[country] || 15
+    if (phone.trim() && phone.length !== maxLength) {
+      newErrors.phone = `رقم الهاتف يجب أن يكون ${maxLength} أرقام`
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      toast.error('الرجاء إكمال الحقول المطلوبة بشكل صحيح! ⚠️')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const fullPhone = phone.trim() ? `${phoneCode}${phone.replace(/\s/g, '')}` : null
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          full_name: fullName,
+          country: country,
+          phone: fullPhone,
+          avatar_url: avatarUrl
+        }
+      })
+
+      if (authError) console.error('Auth update error:', authError)
+
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .upsert({ 
+          id: user.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          country: country,
+          phone: fullPhone,
+          avatar_url: avatarUrl
+        }, { 
+          onConflict: 'id' 
+        })
+
+      if (dbError) {
+        console.error('Profiles DB error:', dbError)
+      }
+
+      toast.success('تم حفظ التعديلات بنجاح! 🎉')
+    } catch (error: any) {
+      console.error('Save Error Details:', error)
+      toast.error('حدث خطأ أثناء الحفظ: ' + (error.message || 'حاول مرة أخرى'), { duration: 5000 })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getInitials = () => {
+    if (firstName && lastName) return (firstName[0] + lastName[0]).toUpperCase()
+    if (firstName) return firstName[0].toUpperCase()
     if (user?.email) return user.email[0].toUpperCase()
     return '?'
   }
 
-  const getDisplayName = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name} ${profile.last_name}`
-    }
-    if (profile?.first_name) return profile.first_name
-    if (user?.email) return user.email.split('@')[0]
-    return 'مستخدم'
-  }
-
-  // ===== حفظ التعديلات =====
-  const handleSave = async () => {
-    const newErrors: Record<string, string> = {}
-    if (!firstName.trim()) newErrors.firstName = 'الاسم مطلوب'
-    if (!lastName.trim()) newErrors.lastName = 'الكنية مطلوبة'
-    if (!phone.trim()) newErrors.phone = 'رقم الهاتف مطلوب'
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      toast.error('الرجاء تصحيح الأخطاء')
-      return
-    }
-
-    setSaving(true)
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          country,
-          phone: `${phoneCode}${phone.replace(/\s/g, '')}`,
-          birth_date: birthDate || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user!.id)
-
-      if (error) throw error
-
-      await refreshProfile()
-      toast.success('تم حفظ التعديلات بنجاح ✨')
-      setIsEditing(false)
-      setErrors({})
-    } catch (err: any) {
-      console.error(err)
-      toast.error('فشل حفظ التعديلات: ' + (err.message || 'خطأ غير معروف'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // ===== إلغاء التعديل =====
-  const handleCancel = () => {
-    if (profile) {
-      setFirstName(profile.first_name || '')
-      setLastName(profile.last_name || '')
-      setCountry(profile.country || countries[0])
-      setBirthDate(profile.birth_date || '')
-      const fullPhone = profile.phone || ''
-      let foundCode = '+90'
-      let foundNumber = fullPhone
-      for (const [c, code] of Object.entries(countryCodes)) {
-        if (fullPhone.startsWith(code)) {
-          foundCode = code
-          foundNumber = fullPhone.slice(code.length)
-          break
-        }
-      }
-      setPhoneCode(foundCode)
-      setPhone(foundNumber)
-    }
-    setErrors({})
-    setIsEditing(false)
-  }
-
-  // ===== تغيير كلمة المرور =====
-  const handlePasswordChange = async () => {
-    setPasswordError('')
-    if (newPassword.length < 6) {
-      setPasswordError('كلمة المرور يجب أن تكون 6 أحرف على الأقل')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('كلمتا المرور غير متطابقتين')
-      return
-    }
-
-    setPasswordLoading(true)
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-
-      toast.success('تم تغيير كلمة المرور بنجاح 🔐')
-      setNewPassword('')
-      setConfirmPassword('')
-      setShowPasswordSection(false)
-    } catch (err: any) {
-      console.error(err)
-      setPasswordError(err.message || 'فشل تغيير كلمة المرور')
-    } finally {
-      setPasswordLoading(false)
-    }
-  }
-
-  // ===== تسجيل الخروج =====
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      toast.success('تم تسجيل الخروج بنجاح 👋')
-      navigate('/login')
-    } catch {
-      toast.error('حدث خطأ أثناء تسجيل الخروج')
-    }
-  }
-
-  // ===== حساب تاريخ التسجيل =====
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '—'
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })
-    } catch {
-      return '—'
-    }
-  }
-
-  const memberSince = user?.created_at ? formatDate(user.created_at) : '—'
-  const lastSignIn = user?.last_sign_in_at ? formatDate(user.last_sign_in_at) : '—'
-
   return (
-    <div dir="rtl" className="min-h-screen bg-[#080808] relative overflow-hidden">
-
-      {/* ===== 🌌 الخلفية ===== */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: `
-          radial-gradient(ellipse 60% 50% at 15% 20%, rgba(220,38,38,0.15) 0%, transparent 60%),
-          radial-gradient(ellipse 50% 60% at 85% 80%, rgba(244,63,94,0.1) 0%, transparent 55%),
-          radial-gradient(ellipse 40% 40% at 85% 15%, rgba(190,24,93,0.08) 0%, transparent 60%)
-        `
-      }} />
-
-      <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{
-        backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)
-        `,
-        backgroundSize: '70px 70px'
-      }} />
-
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-rose-600/10 blur-[120px] rounded-full pointer-events-none" />
-
-      {/* ===== المحتوى ===== */}
-      <div className="relative z-10 max-w-5xl mx-auto p-4 sm:p-6 lg:p-10">
-
-        {/* رأس الصفحة */}
-        <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
-            الملف <span className="text-rose-500">الشخصي</span>
-          </h1>
-          <p className="text-xs text-zinc-500 font-medium">إدارة بياناتك وإعداداتك الشخصية</p>
-        </div>
-
-        {/* ===== 🎭 البطاقة الرئيسية ===== */}
-        <div className="bg-[#111111]/95 backdrop-blur-2xl rounded-[2rem] border border-rose-500/15 shadow-[0_0_80px_rgba(244,63,94,0.08)] overflow-hidden mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-          {/* رأس البطاقة */}
-          <div className="relative p-6 sm:p-8 bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-transparent border-b border-rose-500/10">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-
-              {/* الأفاتار */}
-              <div className="relative shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-rose-400 via-rose-500 to-rose-600 flex items-center justify-center text-white font-black text-4xl sm:text-5xl shadow-2xl shadow-rose-500/40 ring-4 ring-rose-500/20">
-                  {getInitials()}
-                </div>
-                {/* شارة التحقق */}
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 border-4 border-[#111111] flex items-center justify-center shadow-lg">
-                  <CheckCircle2 size={14} className="text-white" strokeWidth={3} />
-                </div>
-              </div>
-
-              {/* الاسم والبريد */}
-              <div className="flex-1 text-center sm:text-right min-w-0">
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white truncate">
-                    {getDisplayName()}
-                  </h2>
-                  <Sparkles size={18} className="text-rose-400 shrink-0" />
-                </div>
-                <p className="text-sm text-zinc-400 truncate mb-3">{user?.email}</p>
-
-                {/* شارات */}
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
-                    <Shield size={10} />
-                    حساب مُوثق
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-black uppercase tracking-wider">
-                    <Award size={10} />
-                    عضو نشط
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* إحصائيات */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-x-reverse divide-rose-500/10 border-b border-rose-500/10">
-            <StatCard
-              icon={<FileText size={18} />}
-              label="ملفات معالجة"
-              value={stats.files.toString()}
-            />
-            <StatCard
-              icon={<TrendingUp size={18} />}
-              label="أدوات مستخدمة"
-              value={stats.tools.toString()}
-            />
-            <StatCard
-              icon={<Clock size={18} />}
-              label="آخر دخول"
-              value={lastSignIn !== '—' ? lastSignIn.split(',')[0] : '—'}
-            />
-            <StatCard
-              icon={<Calendar size={18} />}
-              label="عضو منذ"
-              value={memberSince !== '—' ? memberSince.split(',')[0] : '—'}
-            />
-          </div>
-
-          {/* ===== نموذج البيانات ===== */}
-          <div className="p-6 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                  <User size={18} className="text-rose-400" />
-                </div>
-                <div>
-                  <h3 className="font-black text-white text-sm uppercase tracking-wider">بياناتي</h3>
-                  <p className="text-[10px] text-zinc-500 font-medium">معلوماتك الشخصية</p>
-                </div>
-              </div>
-
-              {!isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 hover:border-rose-500 text-rose-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95"
-                >
-                  <Save size={14} />
-                  تعديل
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <Field
-                icon={<User size={16} />}
-                label="الاسم"
-                value={firstName}
-                onChange={setFirstName}
-                editing={isEditing}
-                error={errors.firstName}
-                placeholder="أحمد"
-              />
-              <Field
-                icon={<User size={16} />}
-                label="الكنية"
-                value={lastName}
-                onChange={setLastName}
-                editing={isEditing}
-                error={errors.lastName}
-                placeholder="العشين"
-              />
-
-              {/* البريد (دائماً معطل) */}
-              <div>
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                  البريد الإلكتروني
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500">
-                    <Mail size={16} />
-                  </span>
-                  <input
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="w-full bg-[#0d0d0d] border border-zinc-800 rounded-xl px-4 py-3 pr-11 text-sm text-zinc-500 cursor-not-allowed"
-                  />
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-4">
-                    <Lock size={12} className="text-zinc-600" />
-                  </span>
-                </div>
-                <p className="text-[10px] text-zinc-600 mt-1.5">لا يمكن تغيير البريد الإلكتروني</p>
-              </div>
-
-              {/* الدولة */}
-              <div>
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                  الدولة
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 pointer-events-none">
-                    <Globe size={16} />
-                  </span>
-                  {isEditing ? (
-                    <select
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 text-sm text-white focus:outline-none focus:border-rose-400 transition-all cursor-pointer appearance-none"
-                    >
-                      {countries.map((c) => (
-                        <option key={c} value={c} className="bg-[#1a0a10] text-white">{c}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={country}
-                      disabled
-                      className="w-full bg-[#0d0d0d] border border-zinc-800 rounded-xl px-4 py-3 pr-11 text-sm text-white cursor-not-allowed"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* الهاتف */}
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                  رقم الهاتف
-                </label>
-                <div className={`flex items-center bg-[#0d0d0d] border rounded-xl overflow-hidden ${
-                  isEditing ? 'border-rose-500/20 focus-within:border-rose-400' : 'border-zinc-800'
-                }`} dir="ltr">
-                  <div className={`flex items-center gap-1 px-3 py-3 border-r ${
-                    isEditing ? 'bg-rose-500/5 border-rose-500/20' : 'bg-zinc-900 border-zinc-800'
-                  }`}>
-                    <Phone size={14} className={isEditing ? 'text-rose-400' : 'text-zinc-500'} />
-                    <span className={`text-sm font-bold min-w-[42px] text-center ${isEditing ? 'text-rose-300' : 'text-zinc-500'}`}>
-                      {phoneCode}
-                    </span>
+    <div className="min-h-screen bg-[#0f0f11] text-white p-4 md:p-8" dir="rtl">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* البطاقة العلوية */}
+        <div className="bg-[#1a1a1d] rounded-[2rem] p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-36 bg-gradient-to-r from-rose-600/30 via-purple-600/20 to-indigo-600/30"></div>
+          
+          <div className="relative z-10 flex flex-col items-center mt-4">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-full border-4 border-[#1a1a1d] overflow-hidden shadow-2xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-4xl font-black relative ring-4 ring-white/5">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials()
+                )}
+                
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                    <Loader2 size={32} className="animate-spin text-white" />
                   </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ''))}
-                    disabled={!isEditing}
-                    placeholder="555 000 0000"
-                    className={`flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none ${
-                      isEditing ? 'text-white placeholder-zinc-600' : 'text-zinc-500 cursor-not-allowed'
-                    }`}
-                  />
-                </div>
-                {errors.phone && (
-                  <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold">
-                    <AlertCircle size={12} /> {errors.phone}
-                  </p>
                 )}
               </div>
-
-              {/* تاريخ الميلاد */}
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                  تاريخ الميلاد
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500">
-                    <Calendar size={16} />
-                  </span>
-                  <input
-                    type={isEditing ? 'date' : 'text'}
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    disabled={!isEditing}
-                    className={`w-full border rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none transition-all ${
-                      isEditing
-                        ? 'bg-[#1a0a10] border-rose-500/20 text-white focus:border-rose-400'
-                        : 'bg-[#0d0d0d] border-zinc-800 text-white cursor-not-allowed'
-                    }`}
-                  />
-                </div>
-              </div>
+              
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute bottom-1 right-1 p-3 bg-white text-black rounded-full hover:bg-rose-50 hover:text-rose-600 hover:scale-110 transition-all shadow-xl active:scale-95 disabled:opacity-50 border-2 border-[#1a1a1d] cursor-pointer"
+                title="تغيير الصورة"
+              >
+                <Camera size={18} />
+              </button>
+              <input type="file" ref={fileInputRef} onChange={uploadAvatar} accept="image/*" className="hidden" />
             </div>
 
-            {/* أزرار الحفظ / الإلغاء */}
-            {isEditing && (
-              <div className="flex gap-3 mt-8 pt-6 border-t border-rose-500/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-black py-3 rounded-xl shadow-lg shadow-rose-500/30 hover:shadow-rose-500/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Save size={16} />
-                      <span>حفظ التعديلات</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="px-6 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <X size={16} />
-                  إلغاء
-                </button>
-              </div>
-            )}
+            <h1 className="text-2xl font-black mt-5 tracking-tight flex items-center gap-2">
+              {firstName || 'مستخدم'} {lastName}
+            </h1>
+            <p className="text-gray-400 text-sm mt-1 font-medium">{user?.email}</p>
+            
+            <div className="flex items-center gap-2 mt-4">
+              <span className="flex items-center gap-1.5 bg-emerald-500/10 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-400 border border-emerald-500/20 shadow-sm">
+                <ShieldCheck size={14} />
+                حساب موثق
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* ===== 🔐 قسم الأمان ===== */}
-        <div className="bg-[#111111]/95 backdrop-blur-2xl rounded-[2rem] border border-rose-500/15 shadow-[0_0_80px_rgba(244,63,94,0.08)] overflow-hidden mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-          <button
-            onClick={() => setShowPasswordSection(!showPasswordSection)}
-            className="w-full p-6 flex items-center justify-between hover:bg-rose-500/5 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                <Shield size={18} className="text-rose-400" />
+        {/* إحصائيات */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'ملفات معالجة', value: '0', icon: FileText, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+            { label: 'دقائق استخدام', value: '0', icon: Clock, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+            { label: 'آخر دخول', value: 'اليوم', icon: Calendar, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'تاريخ الانضمام', value: 'أكتوبر ٢٠٢٦', icon: Calendar, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-[#1a1a1d] p-4 rounded-3xl border border-white/5 flex flex-col items-center text-center gap-2 hover:bg-white/[0.02] transition-colors">
+              <div className={`p-3 ${stat.bg} ${stat.color} rounded-2xl`}>
+                <stat.icon size={22} />
               </div>
-              <div className="text-right">
-                <h3 className="font-black text-white text-sm uppercase tracking-wider">الأمان</h3>
-                <p className="text-[10px] text-zinc-500 font-medium">كلمة المرور والحماية</p>
-              </div>
-            </div>
-            <ArrowRight
-              size={18}
-              className={`text-zinc-500 group-hover:text-rose-400 transition-all ${
-                showPasswordSection ? 'rotate-90' : 'rotate-180'
-              }`}
-            />
-          </button>
-
-          {showPasswordSection && (
-            <div className="px-6 pb-6 sm:px-8 sm:pb-8 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-rose-500/10 pt-6">
-              <div className="flex items-center gap-2 mb-5">
-                <KeyRound size={16} className="text-rose-400" />
-                <h4 className="font-black text-white text-xs uppercase tracking-wider">تغيير كلمة المرور</h4>
-              </div>
-
-              <div className="space-y-4 max-w-xl">
-                {/* كلمة المرور الجديدة */}
-                <div>
-                  <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                    كلمة المرور الجديدة
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500">
-                      <Lock size={16} />
-                    </span>
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 pl-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-rose-400 focus:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500 hover:text-rose-400 transition-colors"
-                    >
-                      {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* تأكيد كلمة المرور */}
-                <div>
-                  <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-                    تأكيد كلمة المرور
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500">
-                      <Lock size={16} />
-                    </span>
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 pl-11 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-rose-400 focus:shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500 hover:text-rose-400 transition-colors"
-                    >
-                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                {passwordError && (
-                  <p className="text-[11px] text-rose-400 flex items-center gap-1.5 font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
-                    <AlertCircle size={14} />
-                    {passwordError}
-                  </p>
-                )}
-
-                <button
-                  onClick={handlePasswordChange}
-                  disabled={passwordLoading || !newPassword || !confirmPassword}
-                  className="w-full sm:w-auto px-6 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-black py-3 rounded-xl shadow-lg shadow-rose-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {passwordLoading ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Shield size={16} />
-                      <span>تحديث كلمة المرور</span>
-                    </>
-                  )}
-                </button>
+              <div>
+                <p className="text-xs text-gray-500 font-bold">{stat.label}</p>
+                <p className="text-lg font-black">{stat.value}</p>
               </div>
             </div>
-          )}
+          ))}
         </div>
 
-        {/* ===== 🚪 منطقة الخطر ===== */}
-        <div className="bg-[#111111]/95 backdrop-blur-2xl rounded-[2rem] border border-rose-500/20 shadow-[0_0_80px_rgba(244,63,94,0.08)] overflow-hidden p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* نموذج البيانات */}
+        <div className="bg-[#1a1a1d] rounded-[2rem] p-6 md:p-8 border border-white/5 shadow-2xl">
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-8 border-b border-white/10 pb-5">
+            <User size={22} className="text-rose-500" />
+            معلوماتك الشخصية
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
             <div>
-              <h3 className="font-black text-white text-sm uppercase tracking-wider mb-1">تسجيل الخروج</h3>
-              <p className="text-[11px] text-zinc-500">سيتم إغلاق جلستك الحالية على هذا الجهاز</p>
+              <label className="block text-xs font-bold text-gray-400 mb-2 ml-1">الاسم الأول <span className="text-rose-500">*</span></label>
+              <div className="relative">
+                <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input 
+                  type="text" 
+                  value={firstName}
+                  onChange={(e) => { setFirstName(e.target.value); clearError('firstName') }}
+                  className={`w-full bg-[#0f0f11] border rounded-xl py-3.5 pr-12 pl-4 text-sm focus:outline-none transition-all ${errors.firstName ? 'border-rose-500 ring-1 ring-rose-500' : 'border-white/10 focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/20'}`}
+                  placeholder="أدخل اسمك الأول"
+                />
+              </div>
+              {errors.firstName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12}/> {errors.firstName}</p>}
             </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 hover:border-rose-500 text-rose-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95 shrink-0"
+
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 ml-1">الكنية <span className="text-rose-500">*</span></label>
+              <div className="relative">
+                <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input 
+                  type="text" 
+                  value={lastName}
+                  onChange={(e) => { setLastName(e.target.value); clearError('lastName') }}
+                  className={`w-full bg-[#0f0f11] border rounded-xl py-3.5 pr-12 pl-4 text-sm focus:outline-none transition-all ${errors.lastName ? 'border-rose-500 ring-1 ring-rose-500' : 'border-white/10 focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/20'}`}
+                  placeholder="أدخل اسم العائلة"
+                />
+              </div>
+              {errors.lastName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12}/> {errors.lastName}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 ml-1">البريد الإلكتروني</label>
+              <div className="relative opacity-60">
+                <Mail size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input 
+                  type="email" 
+                  value={user?.email || ''}
+                  disabled
+                  dir="ltr"
+                  className="w-full bg-[#0f0f11] border border-white/10 rounded-xl py-3.5 pr-12 pl-4 text-sm text-left cursor-not-allowed select-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-2 ml-1">الدولة</label>
+              <div className="relative">
+                <Globe size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <select 
+                  value={country} 
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full bg-[#0f0f11] border border-white/10 rounded-xl py-3.5 pr-12 pl-4 text-sm focus:outline-none focus:border-rose-500/50 transition-all cursor-pointer appearance-none"
+                >
+                  {countries.map((c) => <option key={c} value={c} className="bg-[#0f0f11] text-white">{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* حقل الهاتف (اختياري) */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-400 mb-2 ml-1">
+                رقم الهاتف <span className="text-gray-600 text-[10px] font-normal">(اختياري)</span>
+              </label>
+              <div className={`flex items-center bg-[#0f0f11] border rounded-xl overflow-hidden transition-all ${errors.phone ? 'border-rose-500 ring-1 ring-rose-500' : 'border-white/10 focus-within:border-rose-500/50 focus-within:ring-1 focus-within:ring-rose-500/20'}`} dir="ltr">
+                <div className="flex items-center gap-1 px-3 py-3.5 bg-white/5 border-r border-white/10 select-none">
+                  <Phone size={14} className="text-rose-400" />
+                  <span className="text-sm font-bold text-rose-300 min-w-[42px] text-center">{phoneCode}</span>
+                </div>
+                <input 
+                  type="tel" 
+                  value={phone}
+                  maxLength={phoneLengths[country] || 15}
+                  onChange={(e) => { 
+                    const val = e.target.value.replace(/\D/g, '').slice(0, phoneLengths[country] || 15);
+                    setPhone(val); 
+                    clearError('phone') 
+                  }}
+                  placeholder={`أدخل ${phoneLengths[country]} أرقام (اختياري)`}
+                  className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-gray-600 focus:outline-none" 
+                />
+              </div>
+              {errors.phone && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12}/> {errors.phone}</p>}
+            </div>
+            
+          </div>
+
+          <div className="mt-10 pt-6 border-t border-white/10 flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <button onClick={() => navigate('/')} className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <X size={18} /> إلغاء
+            </button>
+            <button 
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-lg shadow-rose-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 cursor-pointer"
             >
-              <LogOut size={16} />
-              تسجيل الخروج
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              {loading ? 'جارٍ الحفظ...' : 'حفظ التعديلات'}
             </button>
           </div>
+
         </div>
-
       </div>
-    </div>
-  )
-}
-
-// ===== مكون البطاقة الإحصائية =====
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="p-5 hover:bg-rose-500/5 transition-colors">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-rose-400">{icon}</span>
-        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">{label}</span>
-      </div>
-      <p className="text-2xl font-black text-white truncate">{value}</p>
-    </div>
-  )
-}
-
-// ===== مكون حقل قابل للتعديل =====
-function Field({
-  icon, label, value, onChange, editing, error, placeholder, type = 'text'
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  onChange: (v: string) => void
-  editing: boolean
-  error?: string
-  placeholder?: string
-  type?: string
-}) {
-  return (
-    <div>
-      <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">
-        {label}
-      </label>
-      <div className="relative">
-        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 pointer-events-none">
-          {icon}
-        </span>
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={!editing}
-          placeholder={placeholder}
-          className={`w-full border rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none transition-all ${
-            error
-              ? 'border-rose-500 ring-2 ring-rose-500/20 bg-[#1a0a10] text-white'
-              : editing
-                ? 'bg-[#1a0a10] border-rose-500/20 text-white placeholder-zinc-600 focus:border-rose-400 focus:shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-                : 'bg-[#0d0d0d] border-zinc-800 text-white cursor-not-allowed'
-          }`}
-        />
-      </div>
-      {error && (
-        <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold">
-          <AlertCircle size={12} /> {error}
-        </p>
-      )}
     </div>
   )
 }

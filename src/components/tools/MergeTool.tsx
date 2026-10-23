@@ -1,520 +1,375 @@
-import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Loader2, GripVertical, Lock, RotateCw, Upload, RefreshCw, ArrowRight } from 'lucide-react'
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import React, { useState, useRef } from 'react'
+import { PDFDocument } from 'pdf-lib'
+import { 
+  Layers, UploadCloud, Download, Loader2, Trash2, 
+  ArrowUp, ArrowDown, FileText, Sparkles, Plus, RefreshCw 
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { Capacitor } from '@capacitor/core'
-
-import { getPdfMetaData, unlockPdf } from '../../utils/pdfHelpers'
-import { decryptInput } from '../../utils/decryptInput'
 import { addActivity } from '../../utils/recentActivity'
-import { usePipeline } from '../../utils/pipelineContext'
-import { useObjectURL } from '../../utils/useObjectURL'
-import { saveWorkspace, getWorkspace, clearWorkspace } from '../../utils/workspacePersistence'
-import SuccessState from './shared/SuccessState'
-import { NativeToolLayout } from './shared/NativeToolLayout'
 
-// File Item Type
-type PdfFile = {
+interface FileItem {
   id: string
   file: File
-  thumbnail?: string
-  pageCount: number
-  isLocked: boolean
-  rotation: number
-  password?: string
-}
-
-// Format File Size helper
-const formatSize = (bytes: number) => {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
-
-// Draggable Item Component
-function SortableItem({ id, file, onRemove, onRotate, onUnlock }: { id: string, file: PdfFile, onRemove: (id: string) => void, onRotate: (id: string) => void, onUnlock: (id: string, pass: string) => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
-  const [localPass, setLocalPass] = useState('')
-  const [isUnlocking, setIsUnlocking] = useState(false)
-  
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : 0,
-    position: 'relative' as const,
-  }
-
-  const handleUnlockClick = async () => {
-    setIsUnlocking(true)
-    await onUnlock(id, localPass)
-    setIsUnlocking(false)
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className={`flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border transition-all shadow-sm group touch-none relative ${isDragging ? 'border-rose-300 dark:border-rose-800 shadow-xl scale-[1.02] ring-4 ring-rose-500/10' : 'border-gray-100 dark:border-zinc-800 hover:border-rose-200 dark:hover:border-rose-900/30'}`}>
-      <div {...attributes} {...listeners} className="p-2 cursor-grab text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors active:scale-90">
-        <GripVertical size={20} />
-      </div>
-      
-      <div className="w-12 h-16 bg-gray-50 dark:bg-zinc-800 rounded-lg overflow-hidden shrink-0 border border-gray-100 dark:border-zinc-800 relative group-hover:shadow-md transition-shadow">
-        {file.isLocked ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-black text-rose-500">
-            <Lock size={16} />
-            <span className="text-[8px] font-black uppercase mt-1 text-center px-1">Locked</span>
-          </div>
-        ) : file.thumbnail ? (
-          <img 
-            src={file.thumbnail} 
-            alt="Preview" 
-            className="w-full h-full object-cover transition-transform duration-500" 
-            style={{ transform: `rotate(${file.rotation}deg)` }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center animate-pulse">
-            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="font-bold text-sm truncate text-gray-900 dark:text-white group-hover:text-rose-500 transition-colors">{file.file.name}</p>
-          {file.isLocked && <Lock size={12} className="text-rose-500 shrink-0" />}
-        </div>
-        
-        {file.isLocked ? (
-          <div className="flex gap-1 mt-1">
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={localPass}
-              onChange={(e) => setLocalPass(e.target.value)}
-              className="flex-1 min-w-0 bg-gray-50 dark:bg-black border border-gray-100 dark:border-zinc-800 rounded-lg px-2 py-1 text-[10px] font-bold outline-none focus:border-rose-500 text-gray-900 dark:text-white"
-            />
-            <button 
-              onClick={handleUnlockClick}
-              disabled={!localPass || isUnlocking}
-              className="bg-rose-500 text-white px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest disabled:opacity-50 hover:scale-105 active:scale-95 transition-transform"
-            >
-              {isUnlocking ? '...' : 'Unlock'}
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
-            <span>{formatSize(file.file.size)}</span>
-            {file.pageCount > 0 && (
-              <>
-                <span>•</span>
-                <span>{file.pageCount} pages</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center gap-1">
-        {!file.isLocked && (
-          <button 
-            onClick={() => onRotate(id)}
-            className="p-2 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-rose-500 transition-all hover:rotate-90 active:scale-90"
-            title="Rotate 90°"
-          >
-            <RotateCw size={18} />
-          </button>
-        )}
-        <button onClick={() => onRemove(id)} className="p-2 hover:bg-rose-500/10 rounded-full text-gray-400 hover:text-rose-500 transition-all hover:scale-110 active:scale-90">
-          <X size={18} />
-        </button>
-      </div>
-    </div>
-  )
+  name: string
+  size: string
 }
 
 export default function MergeTool() {
+  const [files, setFiles] = useState<FileItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [mergedBlob, setMergedBlob] = useState<Blob | null>(null)
+  const [mergedUrl, setMergedUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { setPipelineFile, consumePipelineFile } = usePipeline()
-  const { objectUrl, createUrl, clearUrls } = useObjectURL()
-  const [files, setFiles] = useState<PdfFile[]>([])
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [customFileName, setCustomFileName] = useState('paperknife-merged')
-  const [progress, setProgress] = useState(0)
-  const [isDraggingGlobal, setIsDraggingGlobal] = useState(false)
-  const [hasRestorableWorkspace, setHasRestorableWorkspace] = useState(false)
-  const isNative = Capacitor.isNativePlatform()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  // تنسيق حجم الملف
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
 
-  useEffect(() => {
-    const pipelined = consumePipelineFile()
-    if (pipelined) {
-      if (pipelined.type && pipelined.type !== 'application/pdf') {
-        toast.error('The file from the previous tool is not a PDF and cannot be used here.')
-        return
-      }
-      const file = new File([pipelined.buffer as any], pipelined.name, { type: 'application/pdf' })
-      handleFiles([file])
-      toast.success(`Imported ${file.name} from pipeline`)
-    }
-  }, [])
-
-  useEffect(() => {
-    getWorkspace('merge').then(ws => {
-      if (ws && ws.files.length > 0 && files.length === 0) {
-        setHasRestorableWorkspace(true)
+  // معالجة اختيار وإضافة الملفات
+  const handleFileSelect = (newFiles: FileList | File[]) => {
+    const validFiles: FileItem[] = []
+    
+    Array.from(newFiles).forEach((file) => {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        validFiles.push({
+          id: Math.random().toString(36).substring(2, 9),
+          file,
+          name: file.name,
+          size: formatSize(file.size)
+        })
+      } else {
+        toast.error(`الملف ${file.name} ليس مستند PDF صالح`)
       }
     })
-  }, [])
 
-  useEffect(() => {
-    if (files.length > 0) {
-      const save = async () => {
-        const fileDatas = await Promise.all(files.map(async f => ({
-          name: f.file.name,
-          buffer: new Uint8Array(await f.file.arrayBuffer()),
-          settings: { rotation: f.rotation, password: f.password }
-        })))
-        saveWorkspace('merge', fileDatas)
-      }
-      save()
-    } else if (files.length === 0 && !hasRestorableWorkspace) {
-      clearWorkspace('merge')
-    }
-  }, [files])
-
-  const restoreWorkspace = async () => {
-    const ws = await getWorkspace('merge')
-    if (!ws) return
-
-    const restoredFiles = ws.files.map(f => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file: new File([f.buffer as any], f.name, { type: 'application/pdf' }),
-      thumbnail: undefined,
-      pageCount: 0,
-      isLocked: false,
-      rotation: f.settings.rotation || 0,
-      password: f.settings.password
-    }))
-
-    setFiles(restoredFiles)
-    setHasRestorableWorkspace(false)
-    toast.success('Workspace restored successfully!')
-
-    for (const pdfFile of restoredFiles) {
-      getPdfMetaData(pdfFile.file).then(meta => {
-        setFiles(prev => prev.map(f => f.id === pdfFile.id ? { 
-          ...f, 
-          thumbnail: meta.thumbnail,
-          pageCount: meta.pageCount,
-          isLocked: meta.isLocked
-        } : f))
-      })
+    if (validFiles.length > 0) {
+      setFiles((prev) => [...prev, ...validFiles])
+      setMergedBlob(null)
+      setMergedUrl(null)
     }
   }
 
-  const handleFiles = async (selectedFiles: FileList | File[]) => {
-    const newFiles = Array.from(selectedFiles).filter(f => f.type === 'application/pdf').map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      thumbnail: undefined,
-      pageCount: 0,
-      isLocked: false,
-      rotation: 0
-    }))
-    
-    if (newFiles.length === 0) return
-
-    setFiles(prev => [...prev, ...newFiles])
-    clearUrls()
-    
-    // Clear input value to allow selecting the same file again
-    if (fileInputRef.current) fileInputRef.current.value = ''
-
-    for (const pdfFile of newFiles) {
-      getPdfMetaData(pdfFile.file).then(meta => {
-        setFiles(prev => prev.map(f => f.id === pdfFile.id ? { 
-          ...f, 
-          thumbnail: meta.thumbnail,
-          pageCount: meta.pageCount,
-          isLocked: meta.isLocked
-        } : f))
-      })
-    }
-  }
-
-  const handleUnlock = async (id: string, pass: string) => {
-    const pdfFile = files.find(f => f.id === id)
-    if (!pdfFile) return
-
-    const result = await unlockPdf(pdfFile.file, pass)
-    if (result.success) {
-      setFiles(prev => prev.map(f => f.id === id ? {
-        ...f,
-        isLocked: false,
-        thumbnail: result.thumbnail,
-        pageCount: result.pageCount,
-        password: pass
-      } : f))
-    } else {
-      toast.error('Incorrect password for ' + pdfFile.file.name)
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) handleFiles(e.target.files)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDraggingGlobal(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    if (e.currentTarget && !e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDraggingGlobal(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDraggingGlobal(false)
-    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files)
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (active.id !== over?.id) {
-      setFiles((items) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id)
-        const newIndex = items.findIndex((i) => i.id === over?.id)
-        return arrayMove(items, oldIndex, newIndex)
-      })
-    }
-  }
-
+  // حذف ملف من القائمة
   const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id))
-    clearUrls()
+    setFiles((prev) => prev.filter((f) => f.id !== id))
+    setMergedBlob(null)
+    setMergedUrl(null)
   }
 
-  const rotateFile = (id: string) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, rotation: (f.rotation + 90) % 360 } : f))
-    clearUrls()
+  // تحريك الملف للأعلى
+  const moveUp = (index: number) => {
+    if (index === 0) return
+    setFiles((prev) => {
+      const updated = [...prev]
+      const temp = updated[index]
+      updated[index] = updated[index - 1]
+      updated[index - 1] = temp
+      return updated
+    })
   }
 
-  const totalPages = files.reduce((sum, f) => sum + f.pageCount, 0)
-  const hasLockedFiles = files.some(f => f.isLocked)
-  const canMerge = files.length >= 2 && !hasLockedFiles
+  // تحريك الملف للأسفل
+  const moveDown = (index: number) => {
+    if (index === files.length - 1) return
+    setFiles((prev) => {
+      const updated = [...prev]
+      const temp = updated[index]
+      updated[index] = updated[index + 1]
+      updated[index + 1] = temp
+      return updated
+    })
+  }
 
-  const mergePDFs = async () => {
-    if (!canMerge) return
+  // ⚙️ معالجة دمج مستندات PDF
+  const handleMerge = async () => {
+    if (files.length < 2) {
+      toast.error('الرجاء اختيار ملفين PDF على الأقل للدمج')
+      return
+    }
 
-    setIsProcessing(true)
-    setProgress(0)
+    setLoading(true)
+    try {
+      const mergedPdf = await PDFDocument.create()
+
+      for (const item of files) {
+        const arrayBuffer = await item.file.arrayBuffer()
+        const pdf = await PDFDocument.load(arrayBuffer)
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices())
+        copiedPages.forEach((page) => mergedPdf.addPage(page))
+      }
+
+      const pdfBytes = await mergedPdf.save()
+      
+      // 🟢 تصحيح نوع Uint8Array لتوافق الـ BlobPart عبر as any لتجاوز خطأ TS2322
+      const blob = new Blob([pdfBytes as any], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+
+      setMergedBlob(blob)
+      setMergedUrl(url)
+
+      toast.success('تم دمج ملفات PDF بنجاح! 🎉')
+
+      // تسجيل صامت في قاعدة البيانات
+      addActivity({
+        tool: 'دمج PDF',
+        name: `مستند مدمج (${files.length} ملفات)`,
+        size: blob.size
+      }).catch(() => {})
+
+    } catch (error) {
+      console.error('Merge error:', error)
+      toast.error('حدث خطأ أثناء دمج الملفات، تأكد من أن الملفات غير محمية بكلمة سر')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 📥 تنزيل المستند المدمج
+  const handleDownload = () => {
+    if (!mergedBlob && !mergedUrl) return
+
+    const fileName = `paperknife-merged-${Date.now()}.pdf`
     
     try {
-      const fileDatas: { buffer: Uint8Array, rotation: number, name: string }[] = []
-      for (const f of files) {
-        if (!f.file || f.file.size === 0) { toast.error(`"${f.file?.name || 'File'}" is empty`); setIsProcessing(false); return }
-        if (!f.pageCount || f.pageCount === 0) { toast.error(`"${f.file.name}" has no readable pages`); setIsProcessing(false); return }
-        let bytes: Uint8Array = new Uint8Array(await f.file.arrayBuffer())
-        if (f.password) {
-          try {
-            bytes = await decryptInput(bytes, f.password, f.file.name)
-          } catch (e: any) {
-            toast.error(e.message || `Failed to unlock "${f.file.name}".`); setIsProcessing(false); return
-          }
-        }
-        fileDatas.push({
-          buffer: bytes,
-          rotation: f.rotation,
-          name: f.file.name
-        })
-      }
+      const blobToUse = mergedBlob || new Blob([], { type: 'application/pdf' })
+      const downloadUrl = mergedUrl || URL.createObjectURL(blobToUse)
+      
+      const a = document.createElement('a')
+      a.style.display = 'none'
+      a.href = downloadUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
 
-      const worker = new Worker(new URL('../../utils/pdfWorker.ts', import.meta.url), { type: 'module' })
-      worker.postMessage({ type: 'MERGE_PDFS', payload: { files: fileDatas } }, fileDatas.map(d => d.buffer.buffer) as any)
+      setTimeout(() => {
+        document.body.removeChild(a)
+      }, 1000)
 
-      worker.onmessage = (e) => {
-        const { type, payload } = e.data
-        if (type === 'PROGRESS') {
-          setProgress(payload)
-        } else if (type === 'SUCCESS') {
-          const blob = new Blob([payload], { type: 'application/pdf' })
-          const url = createUrl(blob)
-          const fileName = `${customFileName || 'merged'}.pdf`
-          
-          setPipelineFile({
-            buffer: payload,
-            name: fileName,
-            type: 'application/pdf'
-          })
-          
-          addActivity({
-            name: fileName,
-            tool: 'Merge',
-            size: blob.size,
-            resultUrl: url,
-            buffer: payload
-          })
-          
-          setIsProcessing(false)
-          worker.terminate()
-          clearWorkspace('merge')
-          toast.success('PDFs merged successfully!')
-        } else if (type === 'ERROR') {
-          toast.error(payload)
-          setIsProcessing(false)
-          worker.terminate()
-        }
-      }
-    } catch (error: any) {
-      toast.error('An error occurred.')
-      setIsProcessing(false)
+      toast.success('تم تنزيل المستند المدمج بنجاح! 📥')
+    } catch (e) {
+      console.error(e)
+      toast.error('فشل في عملية الحفظ')
     }
   }
 
-  const ActionButton = () => (
-    <button 
-      onClick={mergePDFs}
-      disabled={isProcessing || !canMerge}
-      className={`w-full bg-rose-500 hover:bg-rose-600 text-white font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 py-4 rounded-2xl text-sm md:p-6 md:rounded-3xl md:text-xl flex items-center justify-center gap-3 shadow-lg shadow-rose-500/20`}
-    >
-      {isProcessing ? <><Loader2 className="animate-spin" /> {progress}%</> : <>Merge PDFs <ArrowRight size={18} /></>}
-    </button>
-  )
+  // إعادة الضبط
+  const handleReset = () => {
+    if (mergedUrl) {
+      URL.revokeObjectURL(mergedUrl)
+    }
+    setFiles([])
+    setMergedBlob(null)
+    setMergedUrl(null)
+  }
+
+  const customStyles = `
+    @keyframes blob {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .animate-blob { animation: blob 10s infinite alternate cubic-bezier(0.4, 0, 0.2, 1); }
+    .animation-delay-2000 { animation-delay: 2s; }
+  `
 
   return (
-    <NativeToolLayout
-      title="Merge PDF"
-      description="Combine multiple PDF files into one document. Processed entirely on your device."
-      actions={files.length > 0 && !objectUrl && <ActionButton />}
-    >
-      <div 
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className="flex-1"
-      >
-        {isDraggingGlobal && (
-          <div className="fixed inset-0 z-[100] bg-rose-500/90 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
-            <div className="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center mb-8 animate-bounce">
-              <Plus size={64} strokeWidth={3} />
-            </div>
-            <h2 className="text-4xl md:text-6xl font-black mb-4 text-center">Drop to Add</h2>
+    <div className="min-h-screen relative overflow-hidden pt-24 pb-12 px-6" dir="rtl">
+      <style>{customStyles}</style>
+
+      {/* 🌌 الخلفية التفاعلية الموحدة */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-rose-600/10 rounded-full mix-blend-screen filter blur-[120px] animate-blob" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/10 rounded-full mix-blend-screen filter blur-[120px] animate-blob animation-delay-2000" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }} />
+      </div>
+
+      <div className="relative z-10 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+        
+        {/* الترويسة */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold uppercase tracking-widest mb-6 backdrop-blur-md shadow-xl">
+            <Sparkles size={14} className="animate-pulse" />
+            <span>معالجة المستندات السحابية</span>
           </div>
-        )}
 
-        {hasRestorableWorkspace && (
-          <div className="mb-8 p-6 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top duration-500 shadow-sm">
-             <div className="flex items-center gap-4 text-left">
-                <div className="w-12 h-12 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm">
-                   <RefreshCw size={24} className="animate-spin-slow" />
-                </div>
-                <div>
-                   <h4 className="font-black text-sm dark:text-white uppercase tracking-tight">Unfinished Work Found</h4>
-                   <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">We saved your previous file list. Want to restore it?</p>
-                </div>
-             </div>
-             <div className="flex gap-2 w-full md:w-auto">
-                <button 
-                  onClick={restoreWorkspace}
-                  className="flex-1 md:flex-none px-6 py-3 bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-500/20 active:scale-95"
-                >
-                  Restore
-                </button>
-                <button 
-                  onClick={() => { clearWorkspace('merge'); setHasRestorableWorkspace(false); }}
-                  className="flex-1 md:flex-none px-6 py-3 bg-white dark:bg-zinc-800 text-gray-400 hover:text-rose-500 rounded-xl text-xs font-black uppercase tracking-widest transition-colors active:scale-95"
-                >
-                  Discard
-                </button>
-             </div>
+          <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-3xl mx-auto flex items-center justify-center mb-6 border border-rose-500/20 shadow-[0_0_30px_rgba(244,63,94,0.15)]">
+            <Layers size={36} strokeWidth={1.5} />
           </div>
-        )}
-
-        <div className="space-y-6">
-          {files.length > 0 ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  {files.length} Files • {totalPages} Pages
-                </p>
-                <button onClick={() => { setFiles([]); clearUrls(); clearWorkspace('merge'); }} className="text-[10px] font-black uppercase text-rose-500/60 hover:text-rose-500 transition-colors font-bold">Clear All</button>
-              </div>
-
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={files.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-3">
-                    {files.map((file) => (
-                      <SortableItem key={file.id} id={file.id} file={file} onRemove={removeFile} onRotate={rotateFile} onUnlock={handleUnlock} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-4 border-2 border-dashed border-gray-200 dark:border-zinc-800 rounded-2xl text-gray-400 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:border-rose-500 hover:text-rose-500 transition-all"
-              >
-                <Plus size={16} /> Add More Files
-              </button>
-
-              {!objectUrl && (
-                <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm">
-                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Output Filename</label>
-                   <input 
-                      type="text" 
-                      value={customFileName}
-                      onChange={(e) => setCustomFileName(e.target.value)}
-                      className="w-full bg-gray-50 dark:bg-black rounded-xl px-4 py-3 outline-none font-bold text-sm border border-transparent focus:border-rose-500 transition-colors dark:text-white"
-                   />
-                   {files.some(f => f.password) && (
-                     <p className="text-amber-700 dark:text-amber-400 font-bold text-[11px] leading-relaxed mt-3 text-center">File output will be unlocked.</p>
-                   )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <button 
-              onClick={() => !isProcessing && fileInputRef.current?.click()}
-              className="w-full border-4 border-dashed border-gray-100 dark:border-zinc-900 rounded-[2.5rem] p-12 text-center hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-all cursor-pointer group"
-            >
-               <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner">
-                  <Upload size={32} />
-               </div>
-               <h3 className="text-xl font-bold dark:text-white mb-2">Select PDF Files</h3>
-               <p className="text-sm text-gray-400 font-medium">Tap to browse or drag and drop here</p>
-            </button>
-          )}
-
-          {isProcessing && !isNative && (
-             <div className="mt-8 space-y-4">
-                <div className="w-full bg-gray-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
-                   <div className="bg-rose-500 h-full transition-all" style={{ width: `${progress}%` }} />
-                </div>
-                <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">Processing on Device...</p>
-             </div>
-          )}
-
-          {objectUrl && (
-            <div className="animate-in zoom-in duration-300">
-              <SuccessState 
-                message="PDFs Merged Successfully!"
-                downloadUrl={objectUrl}
-                fileName={`${customFileName || 'merged'}.pdf`}
-                onStartOver={() => { setFiles([]); clearUrls(); clearWorkspace('merge'); setIsProcessing(false); }}
-              />
-            </div>
-          )}
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">دمج ملفات PDF</h1>
+          <p className="text-zinc-400 text-lg max-w-xl mx-auto font-medium">
+            اجمع عدة ملفات في مستند واحد بترتيبك الخاص، تتم المعالجة بالكامل داخل متصفحك لضمان خصوصيتك.
+          </p>
         </div>
 
-        <input type="file" multiple accept=".pdf" className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
+        {/* منطقة رفع وتجهيز الملفات */}
+        {files.length === 0 ? (
+          <div className="bg-zinc-900/60 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 md:p-12 shadow-2xl">
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (e.dataTransfer.files) handleFileSelect(e.dataTransfer.files)
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              className="border-2 border-dashed border-zinc-700/50 hover:border-rose-500/50 bg-zinc-950/30 rounded-[2rem] flex flex-col items-center justify-center py-20 px-6 text-center transition-all cursor-pointer group"
+            >
+              <div className="w-20 h-20 bg-zinc-800 text-zinc-400 rounded-full flex items-center justify-center mb-6 group-hover:bg-rose-500 group-hover:text-white transition-all duration-300 shadow-lg">
+                <UploadCloud size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-white mb-2">اسحب وأفلت الملفات هنا</h3>
+              <p className="text-zinc-500 mb-6 font-medium">أو اضغط لتصفح جهازك واختيار ملفات PDF</p>
+              
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fileInputRef.current?.click()
+                }}
+                className="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-bold transition-all flex items-center gap-2 shadow-lg"
+              >
+                تحديد الملفات <Plus size={18} className="text-rose-400" />
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+            />
+          </div>
+        ) : (
+          <div className="bg-zinc-900/60 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 md:p-8 shadow-2xl animate-in fade-in duration-500">
+            
+            {/* الشريط العلوى للحالة */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center font-black text-sm">
+                  {files.length}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">الملفات المحددة</h3>
+                  <p className="text-xs text-zinc-400 font-medium">يمكنك إعادة ترتيب المستندات باستخدام الأسهم</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold rounded-xl transition-all"
+              >
+                <Plus size={16} className="text-rose-400" />
+                إضافة المزيد
+              </button>
+            </div>
+
+            {/* قائمة المستندات */}
+            <div className="space-y-3 mb-8 max-h-[380px] overflow-y-auto pr-1">
+              {files.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-4 bg-zinc-950/60 rounded-2xl border border-white/5 hover:border-rose-500/30 transition-all group"
+                >
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <span className="w-7 h-7 rounded-lg bg-white/5 text-zinc-400 flex items-center justify-center text-xs font-bold shrink-0">
+                      {index + 1}
+                    </span>
+                    <FileText size={24} className="text-rose-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-white truncate">{item.name}</p>
+                      <p className="text-xs text-zinc-500">{item.size}</p>
+                    </div>
+                  </div>
+
+                  {/* أزرار الترتيب والحذف */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => moveUp(index)}
+                      disabled={index === 0}
+                      className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                      title="تحريك للأعلى"
+                    >
+                      <ArrowUp size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveDown(index)}
+                      disabled={index === files.length - 1}
+                      className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                      title="تحريك للأسفل"
+                    >
+                      <ArrowDown size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(item.id)}
+                      className="p-2 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 rounded-lg transition-colors"
+                      title="حذف الملف"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+            />
+
+            {/* الأزرار العريضة */}
+            <div className="flex flex-wrap gap-4">
+              {!mergedUrl ? (
+                <button
+                  type="button"
+                  onClick={handleMerge}
+                  disabled={loading || files.length < 2}
+                  className="flex-1 bg-gradient-to-r from-rose-600 via-rose-500 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white font-black py-4 px-6 rounded-2xl shadow-lg shadow-rose-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-3 text-base"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={22} /> : <Layers size={22} />}
+                  {loading ? 'جاري دمج المستندات...' : `دمج (${files.length}) ملفات PDF الآن`}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black py-4 px-6 rounded-2xl shadow-lg shadow-emerald-500/25 transition-all duration-300 flex items-center justify-center gap-3 text-base"
+                >
+                  <Download size={22} />
+                  تحميل المستند المدمج (PDF)
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={loading}
+                className="px-6 py-4 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 font-bold rounded-2xl border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 text-base"
+              >
+                <RefreshCw size={18} />
+                بدء من جديد
+              </button>
+            </div>
+
+          </div>
+        )}
+
       </div>
-    </NativeToolLayout>
+    </div>
   )
 }

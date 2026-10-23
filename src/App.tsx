@@ -1,5 +1,5 @@
 /**
- * PaperKnife - السكين السويسرية لملفات PDF
+ * PaperKnife - السكين السويسرية لملفات PDF والأعمال
  * حقوق النشر (C) 2026 potatameister
  */
 
@@ -8,9 +8,9 @@ import {
   Layers, Scissors, Zap, Smartphone as SmartphoneIcon, Monitor as MonitorIcon, Lock, Unlock,
   RotateCw, Type, FileText, ArrowUpDown, PenTool,
   ImagePlus, FileImage,
-  Wand2, FileType2, UserCircle, Brush, X, ChevronDown
+  Wand2, FileType2, UserCircle, Brush, X, ChevronDown, QrCode
 } from 'lucide-react'
-import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
@@ -24,11 +24,13 @@ import ScrollToTop from './components/ScrollToTop'
 import AuthPage from './components/AuthPage'
 import ResetPasswordPage from './components/ResetPasswordPage'
 import ProtectedRoute from './ProtectedRoute'
+import { supabase } from './supabaseClient'
 
-// 🌟 استيراد صفحة الهبوط الجديدة
+import ChangePasswordPage from './components/ChangePasswordPage'
 import LandingPage from './pages/LandingPage'
+import TermsOfUse from './pages/TermsOfUse'
+import SupportPage from './pages/SupportPage'
 
-// الواجهات الحيوية والأدوات
 import WebView from './components/WebView'
 import AndroidView from './components/AndroidView'
 import AndroidToolsView from './components/AndroidToolsView'
@@ -58,8 +60,11 @@ import RemoveBackgroundTool from './components/tools/RemoveBackgroundTool'
 import WordToPdfTool from './components/tools/WordToPdfTool'
 import CvMakerTool from './components/tools/CvMakerTool'
 import ImageEditorTool from './components/tools/ImageEditorTool'
+import QrGeneratorTool from './components/tools/QrGeneratorTool'
 
 const tools: Tool[] = [
+  { title: 'صانع الباركود (QR)', titleEn: 'QR Code Generator', desc: 'ولد رموز QR سريعة وعالية الدقة للروابط والنصوص.', descEn: 'Generate high-quality QR codes for links and text.', icon: QrCode, implemented: true, path: '/qr-generator', category: 'Convert', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+  { title: 'صانع السيرة الذاتية', titleEn: 'CV Maker', desc: 'أنشئ سيرة ذاتية احترافية بالعربي جاهزة للطباعة.', descEn: 'Create a professional Arabic CV ready to print.', icon: UserCircle, implemented: true, path: '/cv-maker', category: 'Convert', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
   { title: 'دمج PDF', titleEn: 'Merge PDF', desc: 'اجمع عدة ملفات PDF في مستند واحد.', descEn: 'Combine files into one document.', icon: Layers, implemented: true, path: '/merge', category: 'Edit', color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20' },
   { title: 'تقسيم PDF', titleEn: 'Split PDF', desc: 'استخرج صفحات أو نطاقات محددة بصريًا.', descEn: 'Extract specific pages or ranges.', icon: Scissors, implemented: true, path: '/split', category: 'Edit', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
   { title: 'ضغط PDF', titleEn: 'Compress PDF', desc: 'قلّل حجم ملفك لسهولة المشاركة.', descEn: 'Shrink file size, keep quality.', icon: Zap, implemented: true, path: '/compress', category: 'Optimize', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
@@ -72,10 +77,8 @@ const tools: Tool[] = [
   { title: 'PDF إلى صورة', titleEn: 'PDF to Image', desc: 'حوّل صفحات المستند إلى صور عالية الجودة.', descEn: 'Convert PDF pages to high-quality images.', icon: FileImage, implemented: true, path: '/pdf-to-image', category: 'Convert', color: 'text-lime-500', bg: 'bg-lime-50 dark:bg-lime-900/20' },
   { title: 'صورة إلى PDF', titleEn: 'Image to PDF', desc: 'حوّل JPG وPNG وWebP إلى PDF احترافي.', descEn: 'Convert JPG, PNG, WebP to professional PDF.', icon: ImagePlus, implemented: true, path: '/image-to-pdf', category: 'Convert', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20' },
   { title: 'PDF إلى نص', titleEn: 'PDF to Text', desc: 'استخرج النص العادي من مستندات PDF.', descEn: 'Extract plain text from PDF documents.', icon: FileText, implemented: true, path: '/pdf-to-text', category: 'Convert', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/20' },
-
   { title: 'إزالة خلفية الصور', titleEn: 'Remove Background', desc: 'أزل خلفية أي صورة بضغطة زر — مثالي للبائعين على إنستغرام.', descEn: 'Remove image background with one click — ideal for Instagram sellers.', icon: Wand2, implemented: true, path: '/remove-bg', category: 'Convert', color: 'text-fuchsia-500', bg: 'bg-fuchsia-50 dark:bg-fuchsia-900/20' },
   { title: 'تحويل Word ↔️ PDF', titleEn: 'Word ↔️ PDF', desc: 'حوّل مستندات Word إلى PDF والعكس بسهولة.', descEn: 'Convert Word documents to PDF and back.', icon: FileType2, implemented: true, path: '/word-to-pdf', category: 'Convert', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  { title: 'صانع السيرة الذاتية', titleEn: 'CV Maker', desc: 'أنشئ سيرة ذاتية احترافية بالعربي جاهزة للطباعة.', descEn: 'Create a professional Arabic CV ready to print.', icon: UserCircle, implemented: true, path: '/cv-maker', category: 'Convert', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
   { title: 'محرر الصور الاحترافي', titleEn: 'Image Editor', desc: 'عدّل الألوان، ارفع الدقة، وأزل أي عنصر من صورتك.', descEn: 'Adjust colors, upscale, and remove elements from your photo.', icon: Brush, implemented: true, path: '/image-editor', category: 'Edit', color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
 ]
 
@@ -169,6 +172,44 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
   const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [showQuickDrop, setShowQuickDrop] = useState(false)
 
+  useEffect(() => {
+    const handleAuthHash = async () => {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('code='))) {
+        try {
+          const hashClean = hash.startsWith('#') ? hash.substring(1) : hash;
+          const params = new URLSearchParams(hashClean);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+
+          if (accessToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            if (data.session) {
+              toast.success('تم تسجيل الدخول بنجاح! 🚀');
+              navigate('/tools', { replace: true });
+              return;
+            } else if (error) {
+              console.error('خطأ تعيين الجلسة:', error.message);
+            }
+          }
+          
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) {
+            navigate('/tools', { replace: true });
+          }
+        } catch (err) {
+          console.error('خطأ معالجة المصادقة:', err);
+        }
+      }
+    };
+
+    handleAuthHash();
+  }, [navigate]);
+
   useBackHandler(showQuickDrop, () => setShowQuickDrop(false))
   useEffect(() => {
     ensureBackListening()
@@ -249,19 +290,16 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
 
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          {/* 🌐 الصفحة الرئيسية الجديدة (متاحة للجميع) */}
           <Route path="/" element={<LandingPage />} />
-          
-          {/* 🌐 صفحات عامة (بدون حماية) */}
           <Route path="/login" element={<AuthPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/support" element={<SupportPage />} />
 
-          {/* 🔒 كل صفحات الموقع محمية وتحتوي على التصميم الداخلي (Layout) */}
           <Route path="/*" element={
             <ProtectedRoute>
               <Layout theme={resolvedTheme} toggleTheme={toggleTheme} tools={activeTools} onFileDrop={handleGlobalDrop} viewMode={viewMode}>
                 <Routes>
-                  {/* لوحة تحكم الأدوات الآن على مسار /tools */}
                   <Route path="/tools" element={
                     viewMode === 'web' ? (
                       <WebView tools={activeTools} />
@@ -277,24 +315,62 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
                   <Route path="/android-tools" element={<AndroidToolsView tools={activeTools} />} />
                   <Route path="/android-history" element={<AndroidHistoryView />} />
                   
-                  {/* الأدوات الداخلية */}
+                  <Route path="/change-password" element={<ChangePasswordPage />} />
+
+                  {/* مسارات الأدوات الذكية مع المسارات البديلة */}
                   <Route path="/merge" element={<MergeTool />} />
+                  <Route path="/tools/merge" element={<MergeTool />} />
+                  <Route path="/tools/merge-pdf" element={<MergeTool />} />
+
                   <Route path="/split" element={<SplitTool />} />
+                  <Route path="/tools/split" element={<SplitTool />} />
+
                   <Route path="/protect" element={<ProtectTool />} />
+                  <Route path="/tools/protect" element={<ProtectTool />} />
+
                   <Route path="/unlock" element={<UnlockTool />} />
+                  <Route path="/tools/unlock" element={<UnlockTool />} />
+
                   <Route path="/compress" element={<CompressTool />} />
+                  <Route path="/tools/compress" element={<CompressTool />} />
+                  <Route path="/tools/compress-image" element={<CompressTool />} />
+
                   <Route path="/pdf-to-image" element={<PdfToImageTool />} />
+                  <Route path="/tools/pdf-to-image" element={<PdfToImageTool />} />
+
                   <Route path="/rotate-pdf" element={<RotateTool />} />
+                  <Route path="/tools/rotate-pdf" element={<RotateTool />} />
+
                   {!IS_OCR_DISABLED && <Route path="/pdf-to-text" element={<PdfToTextTool />} />}
+                  {!IS_OCR_DISABLED && <Route path="/tools/pdf-to-text" element={<PdfToTextTool />} />}
+
                   <Route path="/rearrange-pdf" element={<RearrangeTool />} />
+                  <Route path="/tools/rearrange-pdf" element={<RearrangeTool />} />
+
                   <Route path="/watermark" element={<WatermarkTool />} />
+                  <Route path="/tools/watermark" element={<WatermarkTool />} />
+
                   <Route path="/image-to-pdf" element={<ImageToPdfTool />} />
+                  <Route path="/tools/image-to-pdf" element={<ImageToPdfTool />} />
+
                   <Route path="/signature" element={<SignatureTool />} />
+                  <Route path="/tools/signature" element={<SignatureTool />} />
 
                   <Route path="/remove-bg" element={<RemoveBackgroundTool />} />
+                  <Route path="/tools/remove-bg" element={<RemoveBackgroundTool />} />
+                  <Route path="/tools/remove-background" element={<RemoveBackgroundTool />} />
+
                   <Route path="/word-to-pdf" element={<WordToPdfTool />} />
+                  <Route path="/tools/word-to-pdf" element={<WordToPdfTool />} />
+
                   <Route path="/cv-maker" element={<CvMakerTool />} />
+                  <Route path="/tools/cv-maker" element={<CvMakerTool />} />
+
                   <Route path="/image-editor" element={<ImageEditorTool />} />
+                  <Route path="/tools/image-editor" element={<ImageEditorTool />} />
+
+                  <Route path="/qr-generator" element={<QrGeneratorTool />} />
+                  <Route path="/tools/qr-generator" element={<QrGeneratorTool />} />
 
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/history" element={<HistoryPage />} />
@@ -367,7 +443,7 @@ function App() {
   }, [theme])
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <ScrollToTop />
       <ViewModeProvider viewMode={viewMode} setViewMode={setViewMode}>
         <PipelineProvider>
@@ -380,7 +456,7 @@ function App() {
           />
         </PipelineProvider>
       </ViewModeProvider>
-    </HashRouter>
+    </BrowserRouter>
   )
 }
 

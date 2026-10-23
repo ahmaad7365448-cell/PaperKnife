@@ -12,6 +12,7 @@ export const translations = {
     tools: "Tools",
     about: "About",
     contact: "Contact",
+    terms: "Terms of Service", // ✅ تمت الإضافة
 
     // الأدوات
     merge: "Merge PDF",
@@ -177,6 +178,7 @@ export const translations = {
     tools: "الأدوات",
     about: "من نحن",
     contact: "اتصل بنا",
+    terms: "شروط الاستخدام", // ✅ تمت الإضافة
 
     // الأدوات
     merge: "دمج PDF",

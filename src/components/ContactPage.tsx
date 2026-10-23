@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  Mail, Send, Github, Heart, MessageCircle, HelpCircle,
+  Mail, Send, Heart, MessageCircle, HelpCircle,
   User, FileText, AlertCircle, CheckCircle2, Loader2,
   ChevronDown, Shield, Zap, Clock, Sparkles, ArrowRight,
   Bug, Lightbulb, Users
@@ -11,12 +11,16 @@ import { supabase } from '../supabaseClient'
 import { useLanguage } from '../LanguageContext'
 import { useAuth } from '../AuthContext'
 
+// 🔑 ضع توكن البوت ومعرّف حسابك هنا مباشرة بين التنصيص:
+const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '8630630472:AAETqChBCzhMP1fOj9eEkb7PDAygP-amzTg'
+const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || '1834151868'
+
 const FAQS = {
   ar: [
     { q: 'هل ملفاتي محفوظة على سيرفراتكم؟', a: 'لا، بشكل قاطع. جميع الأدوات تعمل محلياً في متصفحك. ملفاتك لا تترك جهازك أبداً — خصوصيتك كاملة.', icon: Shield },
     { q: 'هل الموقع مجاني؟', a: 'نعم، كل الأدوات مجانية تماماً. لا رسوم خفية، لا اشتراكات.', icon: Heart },
     { q: 'هل يعمل الموقع بدون إنترنت؟', a: 'نعم! بعد فتح الموقع أول مرة، يمكنك استخدام أغلب الأدوات بدون اتصال بالإنترنت.', icon: Zap },
-    { q: 'كيف أبلغ عن خطأ أو أقترح أداة جديدة؟', a: 'استخدم النموذج أدناه، أو افتح Issue على GitHub. نقرأ كل الرسائل ونرد في أسرع وقت.', icon: Bug },
+    { q: 'كيف أبلغ عن خطأ أو أقترح أداة جديدة؟', a: 'استخدم النموذج أدناه، نقرأ كل الرسائل ونرد في أسرع وقت.', icon: Bug },
     { q: 'هل تدعمون اللغة العربية بشكل كامل؟', a: 'نعم، الموقع مصمم من الأساس للعربية مع دعم كامل في كل الأدوات.', icon: Users },
     { q: 'كم يستغرق الرد؟', a: 'نحاول الرد خلال 24-48 ساعة. قد يتأخر قليلاً في العطلات.', icon: Clock },
   ],
@@ -24,7 +28,7 @@ const FAQS = {
     { q: 'Are my files stored on your servers?', a: 'Absolutely not. All tools run locally in your browser. Your files never leave your device.', icon: Shield },
     { q: 'Is the site free?', a: 'Yes, all tools are completely free. No hidden fees, no subscriptions.', icon: Heart },
     { q: 'Does it work offline?', a: 'Yes! After opening the site once, you can use most tools without an internet connection.', icon: Zap },
-    { q: 'How do I report a bug?', a: 'Use the form below, or open an Issue directly on GitHub.', icon: Bug },
+    { q: 'How do I report a bug?', a: 'Use the message form below.', icon: Bug },
     { q: 'Do you fully support Arabic?', a: 'Yes, the site is designed for Arabic (RTL) with full support in all tools.', icon: Users },
     { q: 'How long does it take to reply?', a: 'We try to reply within 24-48 hours.', icon: Clock },
   ]
@@ -130,12 +134,9 @@ export default function ContactPage() {
       subtitle: 'هل لديك سؤال، اقتراح، أو واجهت مشكلة؟ نحن نسمعك.',
       cardEmail: 'البريد الإلكتروني',
       cardEmailDesc: 'للاستفسارات العامة، الشراكات، أو أي سؤال يخص المشروع.',
-      cardGithub: 'GitHub',
-      cardGithubDesc: 'بلّغ عن خطأ، اقترح ميزة، أو ساهم في تطوير المشروع.',
       cardSupport: 'الدعم',
       cardSupportDesc: 'ادعم استمرارية المشروع وساهم في تطوير أدوات جديدة.',
       supportLabel: 'ادعم PaperKnife',
-      githubLabel: 'PaperKnife على GitHub',
       formTitle: 'أرسل رسالة',
       formSubtitle: 'سنرد عليك في أقرب وقت ممكن',
       labelName: 'الاسم',
@@ -180,12 +181,9 @@ export default function ContactPage() {
       subtitle: 'Have a question, suggestion, or encountered a problem? We hear you.',
       cardEmail: 'Email',
       cardEmailDesc: 'For general inquiries, partnerships, or any question about the project.',
-      cardGithub: 'GitHub',
-      cardGithubDesc: 'Report a bug, suggest a feature, or contribute to the open source project.',
       cardSupport: 'Support',
       cardSupportDesc: 'Support the project and help develop new free tools.',
       supportLabel: 'Support PaperKnife',
-      githubLabel: 'PaperKnife on GitHub',
       formTitle: 'Send a message',
       formSubtitle: 'We will reply as soon as possible',
       labelName: 'Name',
@@ -247,9 +245,10 @@ export default function ContactPage() {
 
     setSending(true)
     try {
-      const subjectLabel = texts.subjects.find(s => s.value === subject)?.label || 'Inquiry'
+      const subjectLabel = texts.subjects.find(s => s.value === subject)?.label || 'استفسار'
 
-      const { error } = await supabase
+      // 1️⃣ حفظ الرسالة في Supabase
+      const { error: dbError } = await supabase
         .from('contact_messages')
         .insert([{
           name: name.trim(),
@@ -260,7 +259,28 @@ export default function ContactPage() {
           status: 'new',
         }])
 
-      if (error) throw error
+      if (dbError) console.error('Supabase error:', dbError)
+
+      // 2️⃣ التنسيق المطابق للرسائل القديمة:
+      const tgText =
+        `📣 *رسالة جديدة من PaperKnife!*\n\n` +
+        `📌 *النوع:* ${subjectLabel}\n` +
+        `👤 *الاسم:* ${name.trim()}\n` +
+        `📧 *البريد:* ${email.trim()}\n\n` +
+        `💬 *الرسالة:*\n${message.trim()}`
+
+      // 3️⃣ الإرسال المباشر للتلغرام
+      if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID && !TELEGRAM_BOT_TOKEN.includes('ضع_توكن')) {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: tgText,
+            parse_mode: 'Markdown'
+          })
+        }).catch(err => console.error('Telegram send error:', err))
+      }
 
       setSent(true)
       toast.success(texts.sentToast)
@@ -324,7 +344,8 @@ export default function ContactPage() {
           </p>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* 🟢 تم الحذف وتعديل الشبكة لتصبح بكارتين متناسقين */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <ContactCard
             icon={<Mail size={22} />}
             title={texts.cardEmail}
@@ -333,17 +354,10 @@ export default function ContactPage() {
             accent="rose"
           />
           <ContactCard
-            icon={<Github size={22} />}
-            title={texts.cardGithub}
-            description={texts.cardGithubDesc}
-            action={{ label: texts.githubLabel, href: 'https://github.com/potatameister/PaperKnife', external: true }}
-            accent="indigo"
-          />
-          <ContactCard
             icon={<Heart size={22} />}
             title={texts.cardSupport}
             description={texts.cardSupportDesc}
-            action={{ label: texts.supportLabel, href: 'https://github.com/sponsors/potatameister', external: true }}
+            action={{ label: texts.supportLabel, href: '/support' }}
             accent="emerald"
           />
         </section>
@@ -507,7 +521,7 @@ export default function ContactPage() {
                 el?.focus()
               }, 500)
             }}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 hover:border-rose-500 text-rose-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 hover:border-rose-500 text-rose-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
           >
             <Sparkles size={14} />
             {texts.ctaBtn}
@@ -517,7 +531,7 @@ export default function ContactPage() {
         <div className="text-center mt-10">
           <button
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 text-xs font-black text-zinc-500 hover:text-rose-400 uppercase tracking-widest transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-black text-zinc-500 hover:text-rose-400 uppercase tracking-widest transition-colors cursor-pointer"
           >
             <ArrowRight size={14} className={isRTL ? '' : 'rotate-180'} />
             {texts.backBtn}

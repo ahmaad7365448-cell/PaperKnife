@@ -2,8 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Tool } from '../types'
 import { 
-  Search, Sparkles, ChevronDown, Layers, FileText, 
-  ShieldCheck, Zap, Palette, ArrowRight, Bot, Focus, Wand2
+  Search, Sparkles, ChevronDown, Layers, Bot
 } from 'lucide-react'
 import { useLanguage } from '../LanguageContext'
 
@@ -60,9 +59,7 @@ export default function WebView({ tools = [] }: { tools?: Tool[] }) {
       66% { transform: translate(-20px, 20px) scale(0.9); }
       100% { transform: translate(0px, 0px) scale(1); }
     }
-    .animate-blob {
-      animation: blob 10s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
-    }
+    .animate-blob { animation: blob 10s infinite alternate cubic-bezier(0.4, 0, 0.2, 1); }
     .animation-delay-2000 { animation-delay: 2s; }
     .animation-delay-4000 { animation-delay: 4s; }
     
@@ -73,17 +70,9 @@ export default function WebView({ tools = [] }: { tools?: Tool[] }) {
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 30px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
     }
-
-    .custom-scroll::-webkit-scrollbar {
-      width: 4px;
-    }
-    .custom-scroll::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .custom-scroll::-webkit-scrollbar-thumb {
-      background: rgba(244, 63, 94, 0.4);
-      border-radius: 10px;
-    }
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(244, 63, 94, 0.4); border-radius: 10px; }
   `
 
   const safeToolsList = Array.isArray(tools) ? tools : []
@@ -99,7 +88,6 @@ export default function WebView({ tools = [] }: { tools?: Tool[] }) {
       </div>
       
       <div className="relative z-10 pt-16 pb-12 mb-8 max-w-6xl mx-auto px-6">
-        
         <div className="flex items-center justify-between w-full mb-8">
           
           <div className="relative" ref={menuRef}>
@@ -193,7 +181,6 @@ export default function WebView({ tools = [] }: { tools?: Tool[] }) {
             className={`w-full h-16 glass-panel rounded-2xl ${language === 'ar' ? 'pr-14 pl-6' : 'pl-14 pr-6'} text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500/50 transition-all font-medium text-lg`}
           />
         </div>
-
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 mb-28">

@@ -201,6 +201,17 @@ export const translations = {
     ctaTitle: "Ready to streamline your workflow?",
     ctaDesc: "Join thousands of users who process documents securely and freely every day.",
     browseAllTools: "Browse All Tools",
+    
+    // الإضافات المفقودة لحل خطأ Vercel
+    chatWelcome: "Welcome to chat",
+    backOneStep: "Back one step",
+    verifiedAccount: "Verified Account",
+    termsOfUse: "Terms of Use",
+    smartSupport: "Smart Support",
+    poweredByGemini: "Powered by Gemini",
+    typeYourMessage: "Type your message...",
+    noSignupRequired: "No signup required",
+    completelyFree: "Completely Free",
   },
 
   ar: {
@@ -402,6 +413,17 @@ export const translations = {
     ctaTitle: "جاهز لتسريع مهام عملك؟",
     ctaDesc: "انضم إلى آلاف المستخدمين الذين يعالجون مستنداتهم بأمان وحرية كاملة كل يوم.",
     browseAllTools: "تصفح كل الأدوات",
+
+    // الإضافات المفقودة لحل خطأ Vercel
+    chatWelcome: "مرحباً بك في المحادثة",
+    backOneStep: "العودة خطوة للخلف",
+    verifiedAccount: "حساب موثق",
+    termsOfUse: "شروط الاستخدام",
+    smartSupport: "دعم ذكي",
+    poweredByGemini: "مدعوم من Gemini",
+    typeYourMessage: "اكتب رسالتك...",
+    noSignupRequired: "لا حاجة للتسجيل",
+    completelyFree: "مجاني بالكامل",
   }
 };
 

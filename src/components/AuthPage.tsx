@@ -2,9 +2,17 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { toast } from 'sonner'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User, Globe, Phone, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, User, Globe, Phone, AlertCircle, Languages as LanguagesIcon } from 'lucide-react'
+import { useLanguage } from '../LanguageContext'
 
 const countries = [
+  'Turkey (Türkiye)', 'Saudi Arabia', 'United Arab Emirates', 'Egypt',
+  'Algeria', 'Morocco', 'Tunisia', 'Iraq', 'Jordan', 'Syria', 'Lebanon', 'Palestine',
+  'Qatar', 'Kuwait', 'Bahrain', 'Oman', 'Yemen', 'Sudan', 'Libya',
+  'Mauritania', 'Somalia', 'Djibouti', 'Comoros', 'Other'
+]
+
+const countriesAr = [
   'تركيا (Türkiye)', 'المملكة العربية السعودية', 'الإمارات العربية المتحدة', 'مصر',
   'الجزائر', 'المغرب', 'تونس', 'العراق', 'الأردن', 'سوريا', 'لبنان', 'فلسطين',
   'قطر', 'الكويت', 'البحرين', 'سلطنة عمان', 'اليمن', 'السودان', 'ليبيا',
@@ -12,6 +20,15 @@ const countries = [
 ]
 
 const countryCodes: Record<string, string> = {
+  'Turkey (Türkiye)': '+90', 'Saudi Arabia': '+966', 'United Arab Emirates': '+971',
+  'Egypt': '+20', 'Algeria': '+213', 'Morocco': '+212', 'Tunisia': '+216', 'Iraq': '+964',
+  'Jordan': '+962', 'Syria': '+963', 'Lebanon': '+961', 'Palestine': '+970', 'Qatar': '+974',
+  'Kuwait': '+965', 'Bahrain': '+973', 'Oman': '+968', 'Yemen': '+967',
+  'Sudan': '+249', 'Libya': '+218', 'Mauritania': '+222', 'Somalia': '+252',
+  'Djibouti': '+253', 'Comoros': '+269', 'Other': '+',
+}
+
+const countryCodesAr: Record<string, string> = {
   'تركيا (Türkiye)': '+90', 'المملكة العربية السعودية': '+966', 'الإمارات العربية المتحدة': '+971',
   'مصر': '+20', 'الجزائر': '+213', 'المغرب': '+212', 'تونس': '+216', 'العراق': '+964',
   'الأردن': '+962', 'سوريا': '+963', 'لبنان': '+961', 'فلسطين': '+970', 'قطر': '+974',
@@ -60,7 +77,7 @@ function GlowInput({
           }}
         />
         <div className="relative rounded-[10px] bg-[#1a0a10] flex items-center overflow-hidden" dir={dir}>
-          <span className={`absolute inset-y-0 right-0 flex items-center pr-4 transition-colors ${focused ? 'text-rose-400' : 'text-zinc-500'}`}>
+          <span className={`absolute inset-y-0 ${dir === 'rtl' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center transition-colors ${focused ? 'text-rose-400' : 'text-zinc-500'}`}>
             {icon}
           </span>
           <input
@@ -70,13 +87,15 @@ function GlowInput({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder={placeholder}
-            className={`w-full bg-transparent px-4 py-3 pr-11 ${isPassword ? 'pl-11' : ''} text-sm text-white placeholder-zinc-600 focus:outline-none`}
+            className={`w-full bg-transparent py-3 text-sm text-white placeholder-zinc-600 focus:outline-none ${
+              dir === 'rtl' ? (isPassword ? 'pr-11 pl-11' : 'pr-11 pl-4') : (isPassword ? 'pl-11 pr-11' : 'pl-11 pr-4')
+            }`}
           />
           {isPassword && onTogglePassword && (
             <button
               type="button"
               onClick={onTogglePassword}
-              className="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500 hover:text-rose-400 transition-colors"
+              className={`absolute inset-y-0 ${dir === 'rtl' ? 'left-0 pl-4' : 'right-0 pr-4'} flex items-center text-zinc-500 hover:text-rose-400 transition-colors`}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -93,14 +112,15 @@ function GlowInput({
 }
 
 export default function AuthPage() {
+  const { language, toggleLanguage, isRTL } = useLanguage()
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [country, setCountry] = useState(countries[0])
+  const [country, setCountry] = useState(language === 'ar' ? countriesAr[0] : countries[0])
   const [phone, setPhone] = useState('')
-  const [phoneCode, setPhoneCode] = useState(countryCodes[countries[0]])
+  const [phoneCode, setPhoneCode] = useState(language === 'ar' ? countryCodesAr[countriesAr[0]] : countryCodes[countries[0]])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isIlluminated, setIsIlluminated] = useState(true)
   const [isFormFocused, setIsFormFocused] = useState(false)
@@ -122,8 +142,33 @@ export default function AuthPage() {
 
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup'
+  
+  // النصوص بحسب اللغة
+  const texts = {
+    loginTitle: language === 'ar' ? 'Welcome Back.' : 'Welcome Back.',
+    signupTitle: language === 'ar' ? 'ابدأ رحلتك.' : 'Start Your Journey.',
+    loginSub: language === 'ar' ? 'اسحب الحبل لإضاءة طريقك' : 'Pull the cord to light your way',
+    signupSub: language === 'ar' ? 'أنشئ حسابك للبدء باستخدام الأدوات' : 'Create your account to start using the tools',
+    firstName: language === 'ar' ? 'الاسم' : 'First Name',
+    lastName: language === 'ar' ? 'الكنية' : 'Last Name',
+    country: language === 'ar' ? 'الدولة' : 'Country',
+    phone: language === 'ar' ? 'رقم الهاتف' : 'Phone Number',
+    email: language === 'ar' ? 'البريد الإلكتروني' : 'Email Address',
+    password: language === 'ar' ? 'كلمة المرور' : 'Password',
+    forgotPassword: language === 'ar' ? 'هل نسيت كلمة المرور؟' : 'Forgot Password?',
+    btnSignin: language === 'ar' ? 'تسجيل الدخول' : 'SIGN IN',
+    btnSignup: language === 'ar' ? 'ابدأ رحلتك ✨' : 'SIGN UP ✨',
+    or: language === 'ar' ? 'أو' : 'OR',
+    noAccount: language === 'ar' ? 'ليس لديك حساب؟ ' : 'Don\'t have an account? ',
+    haveAccount: language === 'ar' ? 'لديك حساب بالفعل؟ ' : 'Already have an account? ',
+    createAccount: language === 'ar' ? 'أنشئ حساباً جديداً' : 'Create a new account',
+    loginLink: language === 'ar' ? 'سجّل الدخول' : 'Log In',
+    secureFast: language === 'ar' ? 'Secure • Fast • Reliable' : 'Secure • Fast • Reliable'
+  }
 
-  useEffect(() => { setPhoneCode(countryCodes[country] || '+') }, [country])
+  useEffect(() => { 
+    setPhoneCode(language === 'ar' ? (countryCodesAr[country] || '+') : (countryCodes[country] || '+')) 
+  }, [country, language])
 
   // 🎬 المشهد الافتتاحي
   useEffect(() => {
@@ -222,34 +267,35 @@ export default function AuthPage() {
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
-    if (!email.trim()) newErrors.email = 'البريد الإلكتروني مطلوب'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'البريد الإلكتروني غير صحيح'
+    const errEmailReq = language === 'ar' ? 'البريد الإلكتروني مطلوب' : 'Email is required'
+    const errEmailInv = language === 'ar' ? 'البريد الإلكتروني غير صحيح' : 'Invalid email address'
+    const errPassReq = language === 'ar' ? 'كلمة المرور مطلوبة' : 'Password is required'
+    const errFirstReq = language === 'ar' ? 'الرجاء إدخال الاسم' : 'First name is required'
+    const errLastReq = language === 'ar' ? 'الرجاء إدخال الكنية' : 'Last name is required'
+    const errPhoneReq = language === 'ar' ? 'الرجاء إدخال رقم الهاتف' : 'Phone number is required'
 
-    if (!password.trim()) newErrors.password = 'كلمة المرور مطلوبة'
+    if (!email.trim()) newErrors.email = errEmailReq
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = errEmailInv
+
+    if (!password.trim()) newErrors.password = errPassReq
     
     if (isSignup) {
-      if (!firstName.trim()) newErrors.firstName = 'الرجاء إدخال الاسم'
-      if (!lastName.trim()) newErrors.lastName = 'الرجاء إدخال الكنية'
-      if (!phone.trim()) newErrors.phone = 'الرجاء إدخال رقم الهاتف'
+      if (!firstName.trim()) newErrors.firstName = errFirstReq
+      if (!lastName.trim()) newErrors.lastName = errLastReq
+      if (!phone.trim()) newErrors.phone = errPhoneReq
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  // ==========================================================
-  // 🎯 OAuth (Google + Facebook)
-  // ==========================================================
   const handleOAuth = async (provider: 'google' | 'facebook') => {
     setLoading(true)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // تم التحديث هنا للتوافق مع BrowserRouter
           redirectTo: `${window.location.origin}/`,
-          queryParams: provider === 'google' ? {
-            access_type: 'offline',
-          } : undefined,
+          queryParams: provider === 'google' ? { access_type: 'offline' } : undefined,
         },
       })
       if (error) throw error
@@ -257,19 +303,19 @@ export default function AuthPage() {
       console.error(`${provider} OAuth error:`, error)
       toast.error(
         error.message?.includes('provider is not enabled')
-          ? `${provider === 'google' ? 'Google' : 'Facebook'} غير مُفعَّل في Supabase`
+          ? `${provider === 'google' ? 'Google' : 'Facebook'} غير مُفعَّل`
           : 'فشل الاتصال. حاول مرة أخرى.'
       )
       setLoading(false)
     }
   }
 
-  // ==========================================================
-  // 🔐 تسجيل الدخول / التسجيل
-  // ==========================================================
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) { toast.error('الرجاء تصحيح الأخطاء'); return }
+    if (!validate()) { 
+      toast.error(language === 'ar' ? 'الرجاء تصحيح الأخطاء' : 'Please fix the errors')
+      return 
+    }
 
     const cleanEmail = email.trim().toLowerCase()
     const cleanPassword = password.trim()
@@ -279,12 +325,12 @@ export default function AuthPage() {
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword })
         if (error) {
-          if (error.message.includes('Invalid login credentials')) throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة ❌')
-          if (error.message.includes('Email not confirmed')) throw new Error('يجب تأكيد بريدك الإلكتروني أولاً 📧')
+          if (error.message.includes('Invalid login credentials')) throw new Error(language === 'ar' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة ❌' : 'Invalid email or password ❌')
+          if (error.message.includes('Email not confirmed')) throw new Error(language === 'ar' ? 'يجب تأكيد بريدك الإلكتروني أولاً 📧' : 'Please confirm your email first 📧')
           throw error
         }
         if (!data.session) throw new Error('لم يتم إنشاء جلسة. حاول مجدداً.')
-        toast.success('مرحباً بك مجدداً! 🎉')
+        toast.success(language === 'ar' ? 'مرحباً بك مجدداً! 🎉' : 'Welcome back! 🎉')
         setTimeout(() => { navigate(from, { replace: true }) }, 600)
         return
       }
@@ -304,22 +350,22 @@ export default function AuthPage() {
         }
       })
       if (authError) {
-        if (authError.message.includes('rate limit') || authError.status === 429) throw new Error('تم إرسال طلبات كثيرة جداً. يرجى الانتظار 15 دقيقة.')
-        if (authError.message.includes('already registered')) throw new Error('هذا البريد مسجل مسبقاً. جرب تسجيل الدخول 📧')
-        if (authError.message.includes('Password should be at least')) throw new Error('كلمة المرور قصيرة جداً (6 أحرف على الأقل)')
+        if (authError.message.includes('rate limit') || authError.status === 429) throw new Error(language === 'ar' ? 'تم إرسال طلبات كثيرة. يرجى الانتظار 15 دقيقة.' : 'Too many requests. Please wait 15 minutes.')
+        if (authError.message.includes('already registered')) throw new Error(language === 'ar' ? 'هذا البريد مسجل مسبقاً. جرب تسجيل الدخول 📧' : 'Email already registered. Try logging in 📧')
+        if (authError.message.includes('Password should be at least')) throw new Error(language === 'ar' ? 'كلمة المرور قصيرة جداً (6 أحرف على الأقل)' : 'Password must be at least 6 characters')
         throw authError
       }
       if (!authData.session) {
-        toast.success('تم إنشاء حسابك! تحقق من بريدك لتأكيد الحساب 📧')
+        toast.success(language === 'ar' ? 'تم إنشاء حسابك! تحقق من بريدك 📧' : 'Account created! Check your email 📧')
         setMode('login')
         return
       }
-      toast.success('تم إنشاء حسابك بنجاح! 🎉')
+      toast.success(language === 'ar' ? 'تم إنشاء حسابك بنجاح! 🎉' : 'Account created successfully! 🎉')
       setTimeout(() => { navigate(from, { replace: true }) }, 600)
 
     } catch (error: any) {
       console.error('Auth error:', error)
-      toast.error(error.message || 'حدث خطأ أثناء العملية')
+      toast.error(error.message || 'Error occurred')
     } finally { setLoading(false) }
   }
 
@@ -405,8 +451,21 @@ export default function AuthPage() {
   `
 
   return (
-    <div dir="rtl" className="min-h-screen w-full flex items-center justify-center bg-[#080808] p-4 relative overflow-hidden">
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen w-full flex items-center justify-center bg-[#080808] p-4 relative overflow-hidden">
       <style>{customStyles}</style>
+
+      {/* 🌐 زر تبديل اللغة أعلى الصفحة */}
+      <div className={`absolute top-6 ${language === 'ar' ? 'right-6' : 'left-6'} z-50`}>
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 hover:border-rose-500 hover:bg-rose-500/10 transition-all group cursor-pointer"
+        >
+          <LanguagesIcon size={16} className="text-zinc-400 group-hover:text-rose-400 transition-colors" />
+          <span className="text-xs font-black uppercase tracking-wider text-zinc-300 group-hover:text-white transition-colors">
+            {language === 'ar' ? 'English' : 'العربية'}
+          </span>
+        </button>
+      </div>
 
       {/* 🌌 الخلفية */}
       <div className="absolute inset-0 pointer-events-none" style={{
@@ -447,7 +506,6 @@ export default function AuthPage() {
 
         {/* ============ LEFT PANEL ============ */}
         <div className={`hidden lg:flex w-[40%] relative flex-col items-center justify-center bg-gradient-to-b from-[#1a0808] to-[#0a0404] min-h-[680px] overflow-hidden`}>
-
           <div className="absolute inset-0 opacity-[0.05]" style={{
             backgroundImage: 'radial-gradient(circle at 50% 100%, rgba(244,63,94,0.9) 0%, transparent 70%)'
           }} />
@@ -772,23 +830,21 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <p className="absolute bottom-8 text-[10px] text-rose-400/40 font-medium tracking-widest uppercase">Secure • Fast • Reliable</p>
+          <p className="absolute bottom-8 text-[10px] text-rose-400/40 font-medium tracking-widest uppercase">{texts.secureFast}</p>
         </div>
 
         {/* ============ RIGHT PANEL: FORM ============ */}
         <div className="w-full lg:w-[60%] p-6 sm:p-10 flex flex-col justify-center">
-          <div className="mb-8">
+          <div className="mb-8 text-left" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
               {isLogin ? (
-                <>Welcome <span className="text-rose-500">Back.</span></>
+                <>{texts.loginTitle.split(' ')[0]} <span className="text-rose-500">{texts.loginTitle.split(' ')[1] || ''}</span></>
               ) : (
-                <>ابدأ <span className="text-rose-500">رحلتك.</span></>
+                <>{texts.signupTitle.split(' ')[0]} <span className="text-rose-500">{texts.signupTitle.split(' ').slice(1).join(' ') || ''}</span></>
               )}
             </h1>
             <p className="text-xs text-zinc-500">
-              {isLogin
-                ? 'اسحب الحبل لإضاءة طريقك'
-                : 'أنشئ حسابك للبدء باستخدام الأدوات'}
+              {isLogin ? texts.loginSub : texts.signupSub}
             </p>
           </div>
 
@@ -797,29 +853,33 @@ export default function AuthPage() {
             onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsFormFocused(false) }}
           >
             {isSignup && (
-              <div className="space-y-4">
+              <div className="space-y-4" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الاسم</label>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">{texts.firstName}</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
+                      <span className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center text-zinc-500`}><User size={16} /></span>
                       <input type="text" value={firstName}
                         onChange={(e) => { setFirstName(e.target.value); clearError('firstName') }}
-                        placeholder="أحمد"
-                        className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                        placeholder={language === 'ar' ? 'أحمد' : 'Ahmed'}
+                        className={`w-full bg-[#1a0a10] border rounded-xl py-3 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                          language === 'ar' ? 'pr-11 pl-4' : 'pl-11 pr-4'
+                        } ${
                           errors.firstName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
                         }`} />
                     </div>
                     {errors.firstName && <p className="text-[10px] text-rose-400 mt-1.5 flex items-center gap-1 font-bold"><AlertCircle size={12} />{errors.firstName}</p>}
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الكنية</label>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">{texts.lastName}</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500"><User size={16} /></span>
+                      <span className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center text-zinc-500`}><User size={16} /></span>
                       <input type="text" value={lastName}
                         onChange={(e) => { setLastName(e.target.value); clearError('lastName') }}
-                        placeholder="العشين"
-                        className={`w-full bg-[#1a0a10] border rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                        placeholder={language === 'ar' ? 'العشين' : 'Alshin'}
+                        className={`w-full bg-[#1a0a10] border rounded-xl py-3 text-sm text-white placeholder-zinc-600 focus:outline-none transition-all ${
+                          language === 'ar' ? 'pr-11 pl-4' : 'pl-11 pr-4'
+                        } ${
                           errors.lastName ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus:border-rose-400'
                         }`} />
                     </div>
@@ -829,17 +889,19 @@ export default function AuthPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">الدولة</label>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">{texts.country}</label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-500 pointer-events-none"><Globe size={16} /></span>
+                      <span className={`absolute inset-y-0 ${language === 'ar' ? 'right-0 pr-4' : 'left-0 pl-4'} flex items-center text-zinc-500 pointer-events-none`}><Globe size={16} /></span>
                       <select value={country} onChange={(e) => setCountry(e.target.value)}
-                        className="w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl px-4 py-3 pr-11 text-sm text-white focus:outline-none focus:border-rose-400 transition-all cursor-pointer appearance-none">
-                        {countries.map((c) => <option key={c} value={c} className="bg-[#1a0a10] text-white">{c}</option>)}
+                        className={`w-full bg-[#1a0a10] border border-rose-500/20 rounded-xl py-3 text-sm text-white focus:outline-none focus:border-rose-400 transition-all cursor-pointer appearance-none ${
+                          language === 'ar' ? 'pr-11 pl-4' : 'pl-11 pr-4'
+                        }`}>
+                        {(language === 'ar' ? countriesAr : countries).map((c) => <option key={c} value={c} className="bg-[#1a0a10] text-white">{c}</option>)}
                       </select>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">رقم الهاتف</label>
+                    <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">{texts.phone}</label>
                     <div className={`flex items-center bg-[#1a0a10] border rounded-xl overflow-hidden transition-all ${
                       errors.phone ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-rose-500/20 focus-within:border-rose-400'
                     }`} dir="ltr">
@@ -858,8 +920,8 @@ export default function AuthPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">البريد الإلكتروني</label>
+            <div dir={language === 'ar' ? 'rtl' : 'ltr'}>
+              <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider mb-2">{texts.email}</label>
               <GlowInput
                 icon={<Mail size={16} />}
                 type="email"
@@ -867,19 +929,20 @@ export default function AuthPage() {
                 onChange={(v) => { setEmail(v); clearError('email') }}
                 placeholder="name@example.com"
                 error={errors.email}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               />
             </div>
 
-            <div>
+            <div dir={language === 'ar' ? 'rtl' : 'ltr'}>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider">كلمة المرور</label>
+                <label className="block text-[11px] font-bold text-rose-400 uppercase tracking-wider">{texts.password}</label>
                 {isLogin && (
                   <button
                     type="button"
                     onClick={() => navigate('/reset-password')}
                     className="text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:underline transition-colors uppercase tracking-wider"
                   >
-                    هل نسيت كلمة المرور؟
+                    {texts.forgotPassword}
                   </button>
                 )}
               </div>
@@ -893,30 +956,33 @@ export default function AuthPage() {
                 isPassword
                 showPassword={showPassword}
                 onTogglePassword={() => setShowPassword(!showPassword)}
+                dir={language === 'ar' ? 'rtl' : 'ltr'}
               />
             </div>
 
             <button type="submit" disabled={loading}
-              className="signin-btn w-full mt-6 text-white font-black py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer tracking-wider">
+              className={`signin-btn w-full mt-6 text-white font-black py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer tracking-wider ${
+                language === 'ar' ? 'flex-row-reverse' : 'flex-row'
+              }`}>
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span>{isLogin ? 'SIGN IN' : 'ابدأ رحلتك ✨'}</span>
-                  <ArrowRight size={18} className="group-hover:-translate-x-1 transition-transform rotate-180" />
+                  <span>{isLogin ? texts.btnSignin : texts.btnSignup}</span>
+                  <ArrowRight size={18} className={`transition-transform ${language === 'ar' ? 'group-hover:translate-x-1' : 'group-hover:-translate-x-1 rotate-180'}`} />
                 </>
               )}
             </button>
           </form>
 
           {/* الفاصل + السوشيال */}
-          <div className="flex items-center my-5">
+          <div className="flex items-center my-5" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="flex-1 h-[1px] bg-rose-500/15"></div>
-            <span className="px-3 text-zinc-500 text-xs">أو</span>
+            <span className="px-3 text-zinc-500 text-xs">{texts.or}</span>
             <div className="flex-1 h-[1px] bg-rose-500/15"></div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3" dir={language === 'ar' ? 'rtl' : 'ltr'}>
             {/* 🎯 زر Google */}
             <button
               type="button"
@@ -947,11 +1013,11 @@ export default function AuthPage() {
             </button>
           </div>
 
-          <p className="text-center text-[11px] text-zinc-500 mt-5">
-            {isLogin ? 'ليس لديك حساب؟ ' : 'لديك حساب بالفعل؟ '}
+          <p className="text-center text-[11px] text-zinc-500 mt-5" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            {isLogin ? texts.noAccount : texts.haveAccount}
             <button type="button" onClick={() => switchMode(isLogin ? 'signup' : 'login')}
               className="text-rose-400 hover:underline font-bold cursor-pointer">
-              {isLogin ? 'أنشئ حساباً جديداً' : 'سجّل الدخول'}
+              {isLogin ? texts.createAccount : texts.loginLink}
             </button>
           </p>
         </div>

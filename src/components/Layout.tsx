@@ -72,7 +72,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
 
   useEffect(() => {
     if (chatMessages.length === 0) {
-      setChatMessages([{role: 'bot', text: (t as any)('chatWelcome') || 'مرحباً! كيف يمكنني مساعدتك اليوم؟'}])
+      setChatMessages([{role: 'bot', text: t('chatWelcome')}])
     }
   }, [t, chatMessages.length])
 
@@ -95,10 +95,10 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
         body: JSON.stringify({ message: userMsg, sessionId: user?.email || 'guest' })
       })
       const data = await response.json()
-      setChatMessages(prev => [...prev, {role: 'bot', text: data.reply || 'تم استلام رسالتك!'}])
+      setChatMessages(prev => [...prev, {role: 'bot', text: data.reply || t('done')}])
       setIsTyping(false)
     } catch (error) {
-      setChatMessages(prev => [...prev, {role: 'bot', text: 'عذراً، حدث خطأ في الاتصال.'}])
+      setChatMessages(prev => [...prev, {role: 'bot', text: t('errorNetwork')}])
       setIsTyping(false)
     }
   }
@@ -260,7 +260,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
               <button 
                 onClick={handleBackNavigation} 
                 className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-xl transition-colors text-gray-500 hover:text-rose-500 shrink-0 cursor-pointer"
-                title="رجوع خطوة للخلف"
+                title={t('backOneStep')}
               >
                 <ArrowLeftIcon size={20} className={isRTL ? '' : 'rotate-180'} />
               </button>
@@ -372,7 +372,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                             <div className="flex items-center gap-1.5 mt-1 justify-end">
                               <span className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-500">
                                 <CheckCircleIcon size={10} />
-                                حساب موثق
+                                {t('verifiedAccount')}
                               </span>
                               <p className="text-[11px] text-gray-500 dark:text-zinc-500 truncate" dir="ltr">
                                 {user.email}
@@ -477,7 +477,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                   <li><Link to="/about" className="hover:text-rose-500 transition-colors cursor-pointer">{t('about')}</Link></li>
                   <li><Link to="/contact" className="hover:text-rose-500 transition-colors cursor-pointer">{t('contact')}</Link></li>
                   <li><a href="https://potatameister.github.io/privacy/paperknife" target="_blank" rel="noopener noreferrer" className="hover:text-rose-500 transition-colors cursor-pointer">{t('privacyPolicy')}</a></li>
-                  <li><Link to="/terms" className="hover:text-rose-500 transition-colors cursor-pointer">{(t as any)('termsOfUse') || 'شروط الاستخدام'}</Link></li>
+                  <li><Link to="/terms" className="hover:text-rose-500 transition-colors cursor-pointer">{t('termsOfUse')}</Link></li>
                 </ul>
               </div>
               
@@ -502,7 +502,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
             <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] text-gray-400 dark:text-zinc-600 font-medium">
               <p>©️ 2026 {t('appName')}. {t('rights')}.</p>
               <div className="flex gap-6 items-center">
-                <Link to="/contact" className="hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer">Contact</Link>
+                <Link to="/contact" className="hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer">{t('contact')}</Link>
               </div>
             </div>
           </div>
@@ -554,7 +554,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
         </nav>
       )}
 
-      {/* 🟢 Floating Chat Widget: إضافة pointer-events-none على الحاوية لتفادي حجب النقرات عن الفوتر */}
       <div className={`fixed ${isRTL ? 'left-4' : 'right-4'} ${shouldShowNav ? 'bottom-24' : 'bottom-6'} z-[200] flex flex-col items-end pointer-events-none`}>
         <div className={`mb-4 w-[350px] max-w-[calc(100vw-2rem)] bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom ${isRTL ? 'origin-bottom-left' : 'origin-bottom-right'} ${isChatOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none'}`}>
           
@@ -564,8 +563,8 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                 <SparklesIcon size={20} />
               </div>
               <div>
-                <h3 className="font-bold text-sm">الدعم الذكي</h3>
-                <p className="text-[10px] text-rose-100">بواسطة Gemini</p>
+                <h3 className="font-bold text-sm">{t('smartSupport')}</h3>
+                <p className="text-[10px] text-rose-100">{t('poweredByGemini')}</p>
               </div>
             </div>
             <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors cursor-pointer">
@@ -598,7 +597,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                type="text"
                value={chatInput}
                onChange={e => setChatInput(e.target.value)}
-               placeholder="اكتب رسالتك هنا..."
+               placeholder={t('typeYourMessage')}
                className="flex-1 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-rose-500 text-gray-900 dark:text-zinc-100"
              />
              <button type="submit" disabled={!chatInput.trim() || isTyping} className="bg-rose-500 text-white p-2.5 rounded-xl hover:bg-rose-600 disabled:opacity-50 transition-colors flex items-center justify-center cursor-pointer">

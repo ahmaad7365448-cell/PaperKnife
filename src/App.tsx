@@ -18,6 +18,8 @@ import { Theme, ViewMode, Tool } from './types'
 import Layout from './components/Layout'
 import { PipelineProvider, usePipeline } from './utils/pipelineContext'
 import { ViewModeProvider } from './utils/viewModeContext'
+import { LanguageProvider } from './LanguageContext'
+import { AuthProvider } from './AuthContext'
 import { clearActivity, updateLastSeen, getLastSeen } from './utils/recentActivity'
 import { useBackHandler, ensureBackListening, setBackFallback } from './utils/backHandler'
 import ScrollToTop from './components/ScrollToTop'
@@ -317,7 +319,6 @@ function AppContent({ theme, toggleTheme, setTheme, viewMode, setViewMode }: {
                   
                   <Route path="/change-password" element={<ChangePasswordPage />} />
 
-                  {/* مسارات الأدوات الذكية مع المسارات البديلة */}
                   <Route path="/merge" element={<MergeTool />} />
                   <Route path="/tools/merge" element={<MergeTool />} />
                   <Route path="/tools/merge-pdf" element={<MergeTool />} />
@@ -445,17 +446,21 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <ViewModeProvider viewMode={viewMode} setViewMode={setViewMode}>
-        <PipelineProvider>
-          <AppContent
-            theme={theme}
-            toggleTheme={toggleTheme}
-            setTheme={setTheme}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-          />
-        </PipelineProvider>
-      </ViewModeProvider>
+      <AuthProvider>
+        <LanguageProvider>
+          <ViewModeProvider viewMode={viewMode} setViewMode={setViewMode}>
+            <PipelineProvider>
+              <AppContent
+                theme={theme}
+                toggleTheme={toggleTheme}
+                setTheme={setTheme}
+                viewMode={viewMode}
+                setViewMode={setViewMode}
+              />
+            </PipelineProvider>
+          </ViewModeProvider>
+        </LanguageProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

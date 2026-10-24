@@ -11,10 +11,10 @@ import {
   LayoutGrid as LayoutGridIcon, Settings as SettingsIcon,
   Heart as HeartIcon, User as UserIcon,
   LogOut as LogOutIcon, UserCircle2 as UserCircleIcon, Sparkles as SparklesIcon,
-  MessageCircle, Send as SendIcon, Bug as BugIcon
+  MessageCircle, Send as SendIcon, Bug as BugIcon, Menu as MenuIcon
 } from 'lucide-react'
 import { Capacitor } from '@capacitor/core'
-import { Theme, Tool, ToolCategory, ViewMode } from '../types'
+import { Tool, ToolCategory, ViewMode } from '../types'
 import { PaperKnifeLogo } from './Logo'
 import { ActivityEntry, getRecentActivity } from '../utils/recentActivity'
 import { useBackHandler } from '../utils/backHandler'
@@ -27,7 +27,7 @@ import { getToolLabel } from '../utils/toolLabels'
 
 interface LayoutProps {
   children: React.ReactNode
-  theme: Theme
+  theme: 'light' | 'dark'
   toggleTheme: () => void
   tools: Tool[]
   onFileDrop?: (files: FileList) => void
@@ -56,7 +56,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
   const [showHistory, setShowHistory] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [showFabMenu, setShowFabMenu] = useState(false)
-  const [showFabMore, setShowFabMore] = useState(false)
+  const [showMobileDrawer, setShowMobileDrawer] = useState(false)
   const { setPipelineFile } = usePipeline()
   const { user, profile, signOut } = useAuth()
 
@@ -97,7 +97,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
       const data = await response.json()
       setChatMessages(prev => [...prev, {role: 'bot', text: data.reply || t('done')}])
       setIsTyping(false)
-    } catch (error) {
+    } catch {
       setChatMessages(prev => [...prev, {role: 'bot', text: t('errorNetwork')}])
       setIsTyping(false)
     }
@@ -140,7 +140,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
   const pickFileForTool = (tool: Tool) => {
     if (!tool.implemented || !tool.path) return
     setShowFabMenu(false)
-    setShowFabMore(false)
+    setShowMobileDrawer(false)
     hapticImpact()
     const input = document.createElement('input')
     input.type = 'file'
@@ -171,12 +171,12 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
       <button
         key={tool.title}
         onClick={() => pickFileForTool(tool)}
-        className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-zinc-800 active:scale-95 transition-all shadow-sm group cursor-pointer"
+        className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-white/5 active:bg-gray-50 dark:active:bg-zinc-800 active:scale-95 transition-all shadow-sm group cursor-pointer w-full text-right"
       >
-        <div className={'p-2 rounded-xl ' + tool.bg + ' ' + tool.color + ' group-active:scale-110 transition-transform'}>
+        <div className={'p-2 rounded-xl ' + tool.bg + ' ' + tool.color + ' group-active:scale-110 transition-transform shrink-0'}>
           <tool.icon size={18} strokeWidth={2.5} />
         </div>
-        <span className="text-xs font-bold text-gray-900 dark:text-zinc-200">{label.title}</span>
+        <span className="text-xs font-bold text-gray-900 dark:text-zinc-200 truncate">{label.title}</span>
       </button>
     )
   }
@@ -241,7 +241,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
   }
 
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen flex flex-col text-gray-900 dark:text-zinc-100 transition-colors duration-300 relative">
+    <div dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen flex flex-col text-gray-900 dark:text-zinc-100 transition-colors duration-300 relative overflow-x-hidden">
 
       {isDragging && (
         <div className="fixed inset-0 z-[200] bg-rose-500/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
@@ -252,210 +252,237 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
         </div>
       )}
 
-      {!showMobileNav && (
-        <header className="flex items-center justify-between px-4 md:px-8 h-16 md:h-20 border-b border-gray-100 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-[100]">
-          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-            
-            {!isHome && (
-              <button 
-                onClick={handleBackNavigation} 
-                className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-xl transition-colors text-gray-500 hover:text-rose-500 shrink-0 cursor-pointer"
-                title={t('backOneStep')}
-              >
-                <ArrowLeftIcon size={20} className={isRTL ? '' : 'rotate-180'} />
-              </button>
-            )}
+      {/* الهيدر المحسّن بالكامل ليناسب الهواتف والشاشات الكبيرة */}
+      <header className="flex items-center justify-between px-3 sm:px-6 md:px-8 h-16 md:h-20 border-b border-gray-100 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md sticky top-0 z-[100] w-full">
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          
+          {/* زر القائمة الجانبية (الثلاث خطوط) للهواتف والشاشات الصغيرة */}
+          <button 
+            onClick={() => { hapticImpact(); setShowMobileDrawer(true); }}
+            className="p-2 -ml-1 sm:hidden hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-xl transition-colors text-gray-700 dark:text-zinc-200 shrink-0 cursor-pointer"
+            title="القائمة"
+          >
+            <MenuIcon size={22} />
+          </button>
 
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 cursor-pointer">
-              <PaperKnifeLogo size={Capacitor.isNativePlatform() ? 24 : 28} iconColor="#F43F5E" />
-              <span className="font-black tracking-tighter text-lg md:text-xl dark:text-white hidden xs:block">{t('appName')}</span>
-            </Link>
-            <div className="h-6 w-[1px] bg-gray-200 dark:bg-zinc-800 mx-1 md:mx-2 shrink-0" />
-            <div className="relative min-w-0" ref={dropdownRef}>
-              <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={'flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-xl transition-all font-black text-[10px] md:text-sm uppercase tracking-widest min-w-0 cursor-pointer ' + (isDropdownOpen ? 'bg-rose-500 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-900')}>
-                <span className="truncate">{isHome ? t('allTools') : activeToolLabel}</span>
-                <ChevronDownIcon size={14} className={'transition-transform duration-300 shrink-0 ' + (isDropdownOpen ? 'rotate-180' : '')} />
-              </button>
-              {isDropdownOpen && (
-                <div className="absolute top-full right-0 mt-3 w-72 md:w-80 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] shadow-2xl py-4 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 max-h-[80vh] overflow-y-auto scrollbar-hide z-[110]">
-                  {Object.entries(tools.filter(t => t.implemented).reduce((acc, tool) => { if (!acc[tool.category]) acc[tool.category] = []; acc[tool.category].push(tool); return acc }, {} as Record<string, Tool[]>)).map(([category, categoryTools]) => {
-                    const colors = categoryColors[category as ToolCategory]
-                    return (
-                      <div key={category} className="mb-4">
-                        <div className="px-6 py-2">
-                          <span className={'text-[10px] font-black uppercase tracking-[0.2em] ' + colors.text + ' opacity-60'}>
-                            {t(categoryLabelKey[category as ToolCategory])}
-                          </span>
+          {!isHome && (
+            <button 
+              onClick={handleBackNavigation} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-xl transition-colors text-gray-500 hover:text-rose-500 shrink-0 cursor-pointer"
+              title={t('backOneStep')}
+            >
+              <ArrowLeftIcon size={18} className={isRTL ? '' : 'rotate-180'} />
+            </button>
+          )}
+
+          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 cursor-pointer">
+            <PaperKnifeLogo size={26} iconColor="#F43F5E" />
+            <span className="font-black tracking-tighter text-base sm:text-lg md:text-xl dark:text-white truncate">{t('appName')}</span>
+          </Link>
+          
+          <div className="h-5 w-[1px] bg-gray-200 dark:bg-zinc-800 mx-1 shrink-0 hidden sm:block" />
+          
+          {/* قائمة اختيار الأدوات المنسدلة للشاشات */}
+          <div className="relative min-w-0 hidden sm:block" ref={dropdownRef}>
+            <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all font-black text-xs md:text-sm uppercase tracking-wider min-w-0 cursor-pointer ' + (isDropdownOpen ? 'bg-rose-500 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-900')}>
+              <span className="truncate max-w-[120px] md:max-w-none">{isHome ? t('allTools') : activeToolLabel}</span>
+              <ChevronDownIcon size={14} className={'transition-transform duration-300 shrink-0 ' + (isDropdownOpen ? 'rotate-180' : '')} />
+            </button>
+            {isDropdownOpen && (
+              <div className="absolute top-full right-0 mt-3 w-72 md:w-80 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-[2rem] shadow-2xl py-4 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 max-h-[80vh] overflow-y-auto scrollbar-hide z-[110]">
+                {Object.entries(tools.filter(t => t.implemented).reduce((acc, tool) => { if (!acc[tool.category]) acc[tool.category] = []; acc[tool.category].push(tool); return acc }, {} as Record<string, Tool[]>)).map(([category, categoryTools]) => {
+                  const colors = categoryColors[category as ToolCategory]
+                  return (
+                    <div key={category} className="mb-4">
+                      <div className="px-6 py-2">
+                        <span className={'text-[10px] font-black uppercase tracking-[0.2em] ' + colors.text + ' opacity-60'}>
+                          {t(categoryLabelKey[category as ToolCategory])}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1 px-2">
+                        {categoryTools.map((tool, i) => {
+                          const Icon = tool.icon; const isActive = activeTool?.title === tool.title && !isHome
+                          const label = getToolLabel(tool, language)
+                          return (
+                            <button key={i} onClick={() => { navigate(tool.path || '/'); setIsDropdownOpen(false); }} className={'flex items-center gap-4 p-3 rounded-2xl transition-all text-right group cursor-pointer ' + (isActive ? colors.bg + ' ' + colors.text : 'hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-500 dark:text-gray-400')}>
+                              <div className={'p-2 rounded-lg transition-colors shrink-0 ' + (isActive ? 'bg-white dark:bg-zinc-800' : colors.iconBg + ' ' + colors.text + ' opacity-70 group-hover:opacity-100')}><Icon size={18} /></div>
+                              <div className="flex-1 min-w-0 text-right">
+                                <p className="text-xs font-black uppercase tracking-tight">{label.title}</p>
+                                <p className="text-[10px] opacity-60 truncate">{label.desc}</p>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* الأزرار العلوية للشاشات الكبيرة والهواتف */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="relative" ref={userMenuRef}>
+            {!user ? (
+              <Link
+                to="/login"
+                className="p-2 sm:px-3.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 shadow-sm cursor-pointer"
+              >
+                <UserIcon size={16} />
+                <span className="hidden sm:inline">{t('signIn')}</span>
+              </Link>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className={`flex items-center gap-1.5 p-1 sm:pr-3 rounded-xl transition-all border cursor-pointer ${
+                    showUserMenu
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30'
+                      : 'border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-500'
+                  }`}
+                  title={getDisplayName()}
+                >
+                  <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center font-black text-xs overflow-hidden transition-all ${
+                    showUserMenu ? 'bg-white text-rose-500' : 'bg-rose-500 text-white'
+                  }`}>
+                    {getAvatarUrl() ? (
+                      <img src={getAvatarUrl()!} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      getUserInitials()
+                    )}
+                  </div>
+                  <span className="hidden md:inline text-xs font-black tracking-wide max-w-[100px] truncate">
+                    {getDisplayName()}
+                  </span>
+                  <ChevronDownIcon
+                    size={14}
+                    className={`hidden md:block transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute top-full left-0 md:left-auto md:right-0 mt-3 w-72 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 z-[200]">
+                    <div className="p-5 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border-b border-gray-100 dark:border-zinc-800">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-rose-500/30 shrink-0 overflow-hidden border border-white/20">
+                          {getAvatarUrl() ? (
+                            <img src={getAvatarUrl()!} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            getUserInitials()
+                          )}
                         </div>
-                        <div className="grid grid-cols-1 gap-1 px-2">
-                          {categoryTools.map((tool, i) => {
-                            const Icon = tool.icon; const isActive = activeTool?.title === tool.title && !isHome
-                            const label = getToolLabel(tool, language)
-                            return (
-                              <button key={i} onClick={() => { navigate(tool.path || '/'); setIsDropdownOpen(false); }} className={'flex items-center gap-4 p-3 rounded-2xl transition-all text-right group cursor-pointer ' + (isActive ? colors.bg + ' ' + colors.text : 'hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-500 dark:text-gray-400')}>
-                                <div className={'p-2 rounded-lg transition-colors ' + (isActive ? 'bg-white dark:bg-zinc-800' : colors.iconBg + ' ' + colors.text + ' opacity-70 group-hover:opacity-100')}><Icon size={18} /></div>
-                                <div className="flex-1 min-w-0 text-right">
-                                  <p className="text-xs font-black uppercase tracking-tight">{label.title}</p>
-                                  <p className="text-[10px] opacity-60 truncate">{label.desc}</p>
-                                </div>
-                              </button>
-                            )
-                          })}
+                        <div className="min-w-0 flex-1 text-right">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <p className="font-black text-sm text-gray-900 dark:text-white truncate">{getDisplayName()}</p>
+                            <SparklesIcon size={12} className="text-rose-500 shrink-0" />
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 justify-end">
+                            <span className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-500">
+                              <CheckCircleIcon size={10} /> {t('verifiedAccount')}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                    </div>
+                    <div className="p-2">
+                      <button onClick={() => { navigate('/profile'); setShowUserMenu(false) }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300 group cursor-pointer">
+                        <UserCircleIcon size={16} className="text-rose-500" />
+                        <span className="text-xs font-bold">{t('myProfile')}</span>
+                      </button>
+                      <button onClick={() => { navigate('/history'); setShowUserMenu(false) }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300 group cursor-pointer">
+                        <HistoryIcon size={16} className="text-rose-500" />
+                        <span className="text-xs font-bold">{t('historyLabel')}</span>
+                      </button>
+                      <div className="my-1.5 mx-4 h-[1px] bg-gray-100 dark:bg-zinc-800" />
+                      <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors text-rose-500 cursor-pointer">
+                        <LogOutIcon size={16} />
+                        <span className="text-xs font-bold">{t('signOut')}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <Link to="/contact" className={'p-2 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer hidden sm:flex ' + (location.pathname.includes('contact') ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-900')}>
+            <MessageCircle size={18} />
+          </Link>
+
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all group cursor-pointer"
+            title={language === 'ar' ? t('switchToEnglish') : t('switchToArabic')}
+          >
+            <LanguagesIcon size={15} className="text-gray-400 group-hover:text-rose-500 transition-colors" />
+            <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-rose-500 transition-colors">
+              {language === 'ar' ? 'AR' : 'EN'}
+            </span>
+          </button>
+
+          <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-rose-500 transition-colors cursor-pointer" title={theme === 'light' ? t('darkMode') : t('lightMode')}>
+            {theme === 'light' ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+          </button>
+        </div>
+      </header>
+
+      {/* قائمة الجوال الجانبية (Drawer) عند الضغط على الثلاث خطوط */}
+      {showMobileDrawer && (
+        <div className="fixed inset-0 z-[250] flex">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowMobileDrawer(false)} />
+          <div className="relative w-80 max-w-[85vw] bg-white dark:bg-zinc-950 h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300 p-6 overflow-y-auto">
+            <div className="flex items-center justify-between pb-6 border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <PaperKnifeLogo size={28} iconColor="#F43F5E" />
+                <span className="font-black text-lg dark:text-white">{t('appName')}</span>
+              </div>
+              <button onClick={() => setShowMobileDrawer(false)} className="p-2 rounded-full bg-gray-100 dark:bg-zinc-900 text-gray-500 cursor-pointer">
+                <XIcon size={18} />
+              </button>
+            </div>
+
+            <div className="py-6 space-y-6 flex-1">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">{t('allTools')}</p>
+                <div className="space-y-1.5">
+                  {tools.filter(t => t.implemented).map((tool, idx) => {
+                    const label = getToolLabel(tool, language)
+                    const Icon = tool.icon
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => { navigate(tool.path || '/files'); setShowMobileDrawer(false); }}
+                        className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-rose-50 dark:hover:bg-zinc-900 text-right text-gray-700 dark:text-zinc-200 transition-all cursor-pointer"
+                      >
+                        <div className={`p-2 rounded-xl ${tool.bg} ${tool.color} shrink-0`}>
+                          <Icon size={18} />
+                        </div>
+                        <span className="text-xs font-bold truncate">{label.title}</span>
+                      </button>
                     )
                   })}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="flex items-center gap-1 md:gap-3 shrink-0">
-            <div className="relative" ref={userMenuRef}>
-              {!user ? (
-                <Link
-                  to="/login"
-                  className="p-2 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 shadow-sm cursor-pointer"
-                >
-                  <UserIcon size={16} />
-                  <span className="hidden sm:block">{t('signIn')}</span>
+              <div className="pt-4 border-t border-gray-100 dark:border-zinc-800 space-y-2">
+                <Link to="/about" onClick={() => setShowMobileDrawer(false)} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-900 text-xs font-bold text-gray-700 dark:text-zinc-300">
+                  <InfoIcon size={18} className="text-rose-500" />
+                  <span>{t('about')}</span>
                 </Link>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className={`flex items-center gap-2 p-1 md:pr-3 rounded-xl transition-all border cursor-pointer ${
-                      showUserMenu
-                        ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30'
-                        : 'border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-500'
-                    }`}
-                    title={getDisplayName()}
-                  >
-                    <div className={`w-8 h-8 md:w-7 md:h-7 rounded-lg flex items-center justify-center font-black text-xs overflow-hidden transition-all ${
-                      showUserMenu ? 'bg-white text-rose-500' : 'bg-rose-500 text-white'
-                    }`}>
-                      {getAvatarUrl() ? (
-                        <img src={getAvatarUrl()!} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        getUserInitials()
-                      )}
-                    </div>
-                    <span className="hidden md:block text-xs font-black tracking-wide max-w-[120px] truncate">
-                      {getDisplayName()}
-                    </span>
-                    <ChevronDownIcon
-                      size={14}
-                      className={`hidden md:block transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-
-                  {showUserMenu && (
-                    <div className="absolute top-full left-0 md:left-auto md:right-0 mt-3 w-72 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300 z-[200]">
-                      <div className="p-5 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border-b border-gray-100 dark:border-zinc-800">
-                        <div className="flex items-center gap-3">
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-rose-500/30 shrink-0 overflow-hidden border border-white/20">
-                            {getAvatarUrl() ? (
-                              <img src={getAvatarUrl()!} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                              getUserInitials()
-                            )}
-                          </div>
-                          
-                          <div className="min-w-0 flex-1 text-right">
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <p className="font-black text-sm text-gray-900 dark:text-white truncate">
-                                {getDisplayName()}
-                              </p>
-                              <SparklesIcon size={12} className="text-rose-500 shrink-0" />
-                            </div>
-                            
-                            <div className="flex items-center gap-1.5 mt-1 justify-end">
-                              <span className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-500">
-                                <CheckCircleIcon size={10} />
-                                {t('verifiedAccount')}
-                              </span>
-                              <p className="text-[11px] text-gray-500 dark:text-zinc-500 truncate" dir="ltr">
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-
-                        </div>
-                      </div>
-
-                      <div className="p-2">
-                        <button
-                          onClick={() => { navigate('/profile'); setShowUserMenu(false) }}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300 group cursor-pointer"
-                        >
-                          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                            <UserCircleIcon size={16} />
-                          </div>
-                          <span className="text-xs font-bold">{t('myProfile')}</span>
-                        </button>
-
-                        <button
-                          onClick={() => { navigate('/history'); setShowUserMenu(false) }}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-gray-700 dark:text-zinc-300 group cursor-pointer"
-                        >
-                          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                            <HistoryIcon size={16} />
-                          </div>
-                          <span className="text-xs font-bold">{t('historyLabel')}</span>
-                        </button>
-
-                        <div className="my-2 mx-4 h-[1px] bg-gray-100 dark:bg-zinc-800" />
-
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors text-rose-500 group cursor-pointer"
-                        >
-                          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-500 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                            <LogOutIcon size={16} />
-                          </div>
-                          <span className="text-xs font-bold">{t('signOut')}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+                <Link to="/contact" onClick={() => setShowMobileDrawer(false)} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-900 text-xs font-bold text-gray-700 dark:text-zinc-300">
+                  <MessageCircle size={18} className="text-rose-500" />
+                  <span>{t('contact')}</span>
+                </Link>
+              </div>
             </div>
-
-            <Link to="/contact" className={'p-2 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer ' + (location.pathname.includes('contact') ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-900')}>
-              <MessageCircle size={18} />
-              <span className="hidden lg:block">{t('contact')}</span>
-            </Link>
-            <Link to="/about" className={'p-2 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer ' + (location.pathname.includes('about') ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-900')}>
-              <InfoIcon size={18} />
-              <span className="hidden lg:block">{t('about')}</span>
-            </Link>
-
-            <button
-              onClick={toggleLanguage}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all group cursor-pointer"
-              title={language === 'ar' ? t('switchToEnglish') : t('switchToArabic')}
-            >
-              <LanguagesIcon size={16} className="text-gray-400 group-hover:text-rose-500 transition-colors" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-rose-500 transition-colors">
-                {language === 'ar' ? 'AR' : 'EN'}
-              </span>
-            </button>
-
-            <button onClick={toggleTheme} className="p-2 text-gray-400 hover:text-rose-500 transition-colors cursor-pointer" title={theme === 'light' ? t('darkMode') : t('lightMode')}>
-              {theme === 'light' ? <MoonIcon size={20} /> : <SunIcon size={20} />}
-            </button>
-
-            <button onClick={() => setShowHistory(true)} className={'p-2 transition-colors relative cursor-pointer ' + (showHistory ? 'text-rose-500' : 'text-gray-400 hover:text-rose-500')}>
-              <HistoryIcon size={20} />
-              {activity.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-black" />}
-            </button>
           </div>
-        </header>
+        </div>
       )}
 
       <main className={'flex-1 min-w-0 relative ' + (shouldShowNav ? 'pb-32' : '')}>
-        <div className="relative z-10">
+        <div className="relative z-10 w-full max-w-full">
           {children}
         </div>
       </main>
@@ -480,7 +507,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                   <li><Link to="/terms" className="hover:text-rose-500 transition-colors cursor-pointer">{t('termsOfUse')}</Link></li>
                 </ul>
               </div>
-              
               <div className="col-span-1 md:col-span-3">
                 <h4 className="font-bold text-[10px] uppercase tracking-widest text-gray-900 dark:text-white mb-4">{t('ecosystem')}</h4>
                 <ul className="space-y-2.5 text-xs text-gray-500 dark:text-zinc-500">
@@ -501,9 +527,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
             
             <div className="pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px] text-gray-400 dark:text-zinc-600 font-medium">
               <p>©️ 2026 {t('appName')}. {t('rights')}.</p>
-              <div className="flex gap-6 items-center">
-                <Link to="/contact" className="hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer">{t('contact')}</Link>
-              </div>
             </div>
           </div>
         </footer>
@@ -525,7 +548,7 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
                 <div className="w-full max-w-md max-h-[62vh] overflow-y-auto scrollbar-hide rounded-t-[2.5rem] bg-[#FAFAFA] dark:bg-zinc-950 shadow-2xl border-t border-x border-gray-100 dark:border-white/10 p-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-4 animate-in slide-in-from-bottom-full duration-500 ease-out pointer-events-auto">
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-zinc-500">{t('quickActions')}</p>
-                    <button onClick={() => { hapticImpact(); setShowFabMenu(false); setShowFabMore(false) }} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-900 text-gray-400 active:scale-90 transition-all cursor-pointer">
+                    <button onClick={() => { hapticImpact(); setShowFabMenu(false); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-900 text-gray-400 active:scale-90 transition-all cursor-pointer">
                       <XIcon size={18} />
                     </button>
                   </div>
@@ -554,9 +577,9 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
         </nav>
       )}
 
+      {/* شات المساعد الذكي */}
       <div className={`fixed ${isRTL ? 'left-4' : 'right-4'} ${shouldShowNav ? 'bottom-24' : 'bottom-6'} z-[200] flex flex-col items-end pointer-events-none`}>
         <div className={`mb-4 w-[350px] max-w-[calc(100vw-2rem)] bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 origin-bottom ${isRTL ? 'origin-bottom-left' : 'origin-bottom-right'} ${isChatOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-0 opacity-0 pointer-events-none'}`}>
-          
           <div className="bg-rose-500 p-4 flex items-center justify-between text-white">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
@@ -571,7 +594,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
               <XIcon size={18} />
             </button>
           </div>
-
           <div className="h-[350px] overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-950 space-y-4">
             {chatMessages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -591,7 +613,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
             )}
             <div ref={chatEndRef} />
           </div>
-
           <form onSubmit={handleSendMessage} className="p-3 bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 flex gap-2">
              <input 
                type="text"
@@ -605,7 +626,6 @@ export default function Layout({ children, theme, toggleTheme, tools, onFileDrop
              </button>
           </form>
         </div>
-
         <button 
           onClick={() => setIsChatOpen(!isChatOpen)}
           className="w-14 h-14 bg-rose-500 text-white rounded-full shadow-lg shadow-rose-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer pointer-events-auto"

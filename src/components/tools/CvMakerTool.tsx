@@ -177,7 +177,7 @@ export default function CvMakerTool() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-2 print:text-gray-700">الاسم الكامل</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="مثال: أحمد العشين" className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-3.5 text-white outline-none print:bg-white print:text-black print:border-gray-300" />
+                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="مثال: أحمد العربي" className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-3.5 text-white outline-none print:bg-white print:text-black print:border-gray-300" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-2 print:text-gray-700">المسمى الوظيفي (مطلوب)</label>

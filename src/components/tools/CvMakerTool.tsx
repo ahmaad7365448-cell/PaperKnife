@@ -7,7 +7,7 @@ import { supabase } from '../../supabaseClient' // تأكد من صحة المس
 const GEMINI_MODEL = 'gemini-3.6-flash' 
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
-const GEMINI_API_KEY = 'import.meta.env.VITE_GEMINI_API_KEY'
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 /* ================= دالة إعادة المحاولة ================= */
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
